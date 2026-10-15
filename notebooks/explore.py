@@ -109,15 +109,15 @@ def _(chapter_pick, dl, lineage, lineage_counts, mo):
 @app.cell
 def _(DER, RAW, mo, np, pd):
     _site, _comid = "08158200", 5781217
-    _sl = pd.read_csv(DER / "retrain_sites.csv", dtype={"site_no": str}).query("site_no == @_site").iloc[0]
+    _sl = (lambda d: d[d.site_no == _site])(pd.read_csv(DER / "retrain_sites.csv", dtype={"site_no": str})).iloc[0]
     _ai = pd.read_parquet(DER / "ahg_input.parquet", filters=[("site_no", "==", _site)])
-    _fit = pd.read_parquet(DER / "ahg_fits.parquet").query("site_no == @_site and set == 'all'").iloc[0]
-    _t = pd.read_csv(DER / "retrain_targets.csv", dtype={"site_no": str}).query("site_no == @_site").iloc[0]
-    _runs = {t: pd.read_parquet(DER / f"runs/riverml_{t}/predictions.parquet").query("site_no == @_site")
+    _fit = (lambda d: d[(d.site_no == _site) & (d.set == "all")])(pd.read_parquet(DER / "ahg_fits.parquet")).iloc[0]
+    _t = (lambda d: d[d.site_no == _site])(pd.read_csv(DER / "retrain_targets.csv", dtype={"site_no": str})).iloc[0]
+    _runs = {t: pd.read_parquet(DER / f"runs/riverml_{t}/predictions.parquet", filters=[("site_no", "==", _site)])
              for t in ["TW_bf", "Y_bf"]}
     _err = {t: (100 * (np.exp(r.groupby("variant").log_err.mean()) - 1)).round(0).to_dict() for t, r in _runs.items()}
-    _p = pd.read_parquet(DER / "product_compare.parquet").query("comid == @_comid").iloc[0]
-    _n_raw = sum(len(pd.read_parquet(f, columns=["monitoring_location_id"]).query("monitoring_location_id == 'USGS-08158200'"))
+    _p = pd.read_parquet(DER / "product_compare.parquet", filters=[("comid", "==", _comid)]).iloc[0]
+    _n_raw = sum(len(pd.read_parquet(f, columns=["monitoring_location_id"], filters=[("monitoring_location_id", "==", "USGS-" + _site)]))
                  for f in sorted((RAW / "channel_meas").glob("page_*.parquet")))
     _rows = [
         ("A", "USGS channel measurements", f"{_n_raw} records for USGS-08158200 (all years)"),
@@ -424,6 +424,45 @@ def _(LABELS, METRICS, VARIANT_COLORS, alt, mo, preds, summarize, variant_pick):
                mo.md("**All held-out sites**"), summarize(_p, []),
                mo.md("**By site group**"), summarize(_p, ["group"]),
                mo.md("**By drainage area**"), _by_da])
+    return
+
+
+@app.cell
+def _(C1, C3, alt, mo, np, pd, preds, summarize):
+    mo.stop("log_err_hs" not in preds or preds.log_err_hs.notna().sum() == 0,
+            mo.md("_The reproduction check needs HYDRoSWOT-only targets, which exist for width only: pick the width run._"))
+    _q = preds.dropna(subset=["log_err_hs"]).assign(log_err=lambda x: x.log_err_hs, log_true=lambda x: x.log_true_hs)
+    _tbl = summarize(_q, [])
+    _site = (_q[_q.variant.isin(["A_status_quo", "B2_plus_new_sites"])]
+             .groupby(["variant", "site_no"]).agg(log_true=("log_true", "first"), log_err=("log_err", "mean")).reset_index())
+    _site["target_m"] = np.exp(_site.log_true).round(2)
+    _site["predicted_m"] = np.exp(_site.log_true + _site.log_err).round(2)
+    _site["model"] = _site.variant.map({"A_status_quo": "Status quo (A): trained on HYDRoSWOT-only targets",
+                                        "B2_plus_new_sites": "Expanded-set model (B2)"})
+    _lim = [float(_site[["target_m", "predicted_m"]].min().min()), float(_site[["target_m", "predicted_m"]].max().max())]
+    _charts = []
+    for _name, _col in [("Status quo (A): trained on HYDRoSWOT-only targets", C1), ("Expanded-set model (B2)", C3)]:
+        _pts = alt.Chart(_site[_site.model == _name][["site_no", "target_m", "predicted_m"]]).mark_circle(
+            size=14, opacity=0.5, color=_col).encode(
+            x=alt.X("target_m:Q", scale=alt.Scale(type="log"), title="HYDRoSWOT-only target width (m)"),
+            y=alt.Y("predicted_m:Q", scale=alt.Scale(type="log"), title="Held-out prediction (m)"),
+            tooltip=["site_no", "target_m", "predicted_m"])
+        _one = alt.Chart(pd.DataFrame({"v": _lim})).mark_line(color="#52514e", strokeDash=[4, 3]).encode(x="v:Q", y="v:Q")
+        _charts.append((_pts + _one).properties(width=340, height=300, title=_name))
+    mo.vstack([
+        mo.md("""
+    ### Does the expanded-set model still reproduce the original targets?
+
+    Scored only against targets built from **HYDRoSWOT records alone** (the status quo's own kind of target), on the
+    existing training sites that have one. If adding the extra measurements and sites had distorted the model, the
+    expanded-set model (B2) would do worse here than the status-quo model (A), which was trained on exactly these targets.
+    It doesn't: the two match. The gains in the main results come from the new sites, not from changing how familiar
+    sites are scored.
+        """),
+        alt.hconcat(*_charts),
+        mo.md("**All error measures, scored against HYDRoSWOT-only targets** (held-out predictions, averaged over repeats)"),
+        _tbl,
+    ])
     return
 
 
