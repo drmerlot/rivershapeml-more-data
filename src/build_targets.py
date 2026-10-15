@@ -4,6 +4,8 @@ For each site in retrain_sites.csv (with a COMID):
   q2      : 2-year flood = median of USGS annual peak discharges (>= 10 peaks)
   tw_all  : width at q2 from a log-log fit to ALL USGS width measurements since 2000
   tw_hs   : same, using only the site's HYDRoSWOT records (2000-2015), i.e. the status-quo data
+  td_all  : bankfull mean depth (area / width) at q2, all USGS measurements (no HYDRoSWOT-only version:
+            RiverShapeML's HYDRoSWOT copy has no usable mean depth)
 Each fit needs >= 5 measurements (after trimming gross outliers), a standard error of log-width at q2
 <= 0.2, and q2 <= 3x the largest measured flow; otherwise the target is NaN. This replaces the paper's
 R² >= 0.6 filter: R² is low for confined channels whose width barely changes with flow, even when
@@ -74,10 +76,12 @@ def main(max_se=None, max_ext=None, out=None):
     peaks = pk.groupby(pk.monitoring_location_id.str[5:]).value.agg(q2="median", n_peaks="size")
     peaks.loc[peaks.n_peaks < MIN_PEAKS, "q2"] = np.nan
 
-    cm = pages("channel_meas", ["monitoring_location_id", "time", "channel_flow", "channel_width", "measurement_type"])
+    cm = pages("channel_meas", ["monitoring_location_id", "time", "channel_flow", "channel_width", "channel_area",
+                               "measurement_type"])
     cm = cm[cm.monitoring_location_id.isin(ids)]
-    for c in ["channel_flow", "channel_width"]:
+    for c in ["channel_flow", "channel_width", "channel_area"]:
         cm[c] = pd.to_numeric(cm[c], errors="coerce")
+    cm["depth"] = cm.channel_area / cm.channel_width  # mean depth (ft)
     cm = cm[(cm.channel_flow > 0) & (cm.channel_width > 0) & (cm.measurement_type != "Ice") & (cm.time.str[:4] >= "2000")]
     cm["site_no"] = cm.monitoring_location_id.str[5:]
     by_site = dict(tuple(cm.groupby("site_no")))
@@ -96,6 +100,8 @@ def main(max_se=None, max_ext=None, out=None):
             d = by_site.get(s.site_no)
             if d is not None:
                 row["tw_all"], row["se_all"], row["r2_all"], row["n_all"], row["ext_all"] = fit_at(d.channel_flow.values, d.channel_width.values, q2)
+                dd = d[d.depth > 0]
+                row["td_all"], row["se_d_all"], row["r2_d_all"], row["n_d_all"], row["ext_d_all"] = fit_at(dd.channel_flow.values, dd.depth.values, q2)
             h = hs_by_site.get(s.site_no)
             if h is not None:
                 row["tw_hs"], row["se_hs"], row["r2_hs"], row["n_hs"], row["ext_hs"] = fit_at(h.meas_q_va.values, h.stream_wdth_va.values, q2)
@@ -105,7 +111,7 @@ def main(max_se=None, max_ext=None, out=None):
     print(f"filter: se <= {MAX_SE}, q2/maxQ <= {MAX_EXT}")
 
     print(f"sites with COMID: {len(t)}  | with q2: {t.q2.notna().sum()}")
-    print(t.groupby("group").agg(tw_all=("tw_all", "count"), tw_hs=("tw_hs", "count")))
+    print(t.groupby("group").agg(tw_all=("tw_all", "count"), tw_hs=("tw_hs", "count"), td_all=("td_all", "count")))
     both = t.dropna(subset=["tw_all", "tw_hs"])
     print(f"existing sites with both targets: {len(both)}; tw_all/tw_hs median {np.median(both.tw_all / both.tw_hs):.3f}, "
           f"IQR [{(both.tw_all / both.tw_hs).quantile(.25):.2f}, {(both.tw_all / both.tw_hs).quantile(.75):.2f}]")

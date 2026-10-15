@@ -6,3 +6,4 @@ memo/email_draft.md
 __pycache__/
 .claude/
 .DS_Store
+__marimo__/

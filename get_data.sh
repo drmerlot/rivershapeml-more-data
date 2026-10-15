@@ -25,3 +25,27 @@ python src/fetch_usgs_ogc.py channel-measurements
 [ -f data/raw/enhd/enhd_nhdplusatts.parquet ] || curl -sL -o data/raw/enhd/enhd_nhdplusatts.parquet \
   "https://www.sciencebase.gov/catalog/file/get/63cb311ed34e06fef14f40a3?f=__disk__fa%2Fb9%2F03%2Ffab9035a4ece1500fdb1ead631a9f364d34d1e30"
 python src/fetch_usgs_ogc.py peaks
+
+# NWM v2.1 retrospective hourly flows at ~18k USGS gages, 1979-2020 (USGS ScienceBase 612e264ed34e40dd9c091228, 2.2 GB)
+mkdir -p data/raw/nwm_gages
+[ -f data/raw/nwm_gages/nwmv21_nwis.nc ] || curl -sL -o data/raw/nwm_gages/nwmv21_nwis.nc \
+  "https://www.sciencebase.gov/catalog/file/get/612e264ed34e40dd9c091228?f=__disk__1d%2F9c%2F75%2F1d9c75f22b026a5d676c174ad73b46dfb4a367f7"
+
+# RiverShapeML deployment (NOAA-OWP/predict-riverML): inputs for all ~2.65M reaches (~1.3 GB) and the
+# deployed XGBoost models, reassembled the way their deploy.bash does (cat parts | unxz)
+R=data/raw/predict-riverML
+mkdir -p "$R"
+curl -s "https://api.github.com/repos/NOAA-OWP/predict-riverML/git/trees/main?recursive=1" | python -c "
+import sys, json
+for t in json.load(sys.stdin)['tree']:
+    p = t['path']
+    if t['type'] == 'blob' and (p.startswith(('data/', 'models/', 'model_space/')) or p in ('data_loader.py', 'inference.py')):
+        print(p)" | while read -r f; do
+  mkdir -p "$R/$(dirname "$f")"
+  [ -s "$R/$f" ] || curl -sfL --retry 3 -o "$R/$f" "https://raw.githubusercontent.com/NOAA-OWP/predict-riverML/main/$f"
+done
+[ -f "$R/data/ml_inputs.parquet" ] || cat "$R"/data/ml_inputs_split_part_*.xz | xz -d > "$R/data/ml_inputs.parquet"
+for m in TW_bf Y_bf r; do
+  f="$R/models/trained_xgboost_model_update_${m}_final.pickle.dat"
+  [ -f "$f" ] || cat "$R"/models/trained_xgboost_model_update_${m}_final_split_part_*.xz | xz -d > "$f"
+done

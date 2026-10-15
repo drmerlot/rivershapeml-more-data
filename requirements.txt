@@ -1,9 +1,15 @@
+altair==6.3.0
 geopandas==1.2.0
+marimo==0.25.1
+markdown==3.11.1
+netCDF4==1.7.5
 numpy==2.5.4
 pandas==3.0.6
 pyarrow==26.0.0
 pyogrio==0.13.0
+pyproj==3.8.0
 requests==2.34.2
-shapely==2.2.0
 scikit-learn==1.8.0
-markdown==3.11.1
+shapely==2.2.0
+xarray==2026.9.0
+xgboost==3.4.1

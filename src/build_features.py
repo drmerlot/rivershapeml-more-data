@@ -5,12 +5,13 @@ Approximates the 15 features of RiverShapeML's deployed bankfull-width model:
               RckDepWs, BFIWs, WtDepWs                             <- EPA StreamCat (watershed)
   stand-ins   Topo_pc_*      (elevation, lat/long, climate)  -> StreamCat elev, precip, temp, runoff; gage lat/lon
               Watershed_pc_0 (HLR, WetIndexWs, PctWdWet2011Ws) -> StreamCat wetindex, pctwdwet2011
-              bf_ff (NWM 2-yr flood)                           -> gage 2-yr flood (q2) from annual peaks
+              bf_ff (NWM 2-yr flood)                           -> NWM v2.1 2-yr flood (log_nwm_q2, from nwm_q2.py)
+                                                                  or the gage 2-yr flood (log_q2); the experiment uses one
               qsb_tavg (GLDAS subsurface runoff)               -> StreamCat runoff, bfi
   missing     Sinuosity, rp_100
 Plus a few soil and land-cover fields (clay, sand, permeability, impervious) as general context.
 
-Usage: python src/build_features.py   (after build_targets.py)
+Usage: python src/build_features.py   (after build_targets.py and nwm_q2.py)
 Output: data/derived/retrain_features.csv
 """
 from pathlib import Path
@@ -65,6 +66,11 @@ def main():
          .merge(enhd, on="comid", how="left")
          .merge(sc, on="comid", how="left"))
     x["log_q2"] = np.log(x.q2)
+    # NWM v2.1 2-year flood (what a deployed model would get at ungaged reaches); from nwm_q2.py
+    nwm = pd.read_csv(DER / "nwm_q2.csv")
+    x = x.merge(nwm[["comid", "nwm_q2"]], on="comid", how="left")
+    x["log_nwm_q2"] = np.log(x.nwm_q2.where(x.nwm_q2 > 0))
+    x = x.drop(columns=["nwm_q2"])
     x["log_totdasqkm"] = np.log(x.totdasqkm.clip(lower=0.01))
     x["log_arbolatesu"] = np.log(x.arbolatesu.clip(lower=0.01))
     x["log_slope"] = np.log(x.slope.clip(lower=1e-5))
