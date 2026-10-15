@@ -18,9 +18,10 @@ added data improve the model where it is weakest?**
   to 6,928 (+58%). Sites under 10 km² rise from 66 to 111, and sites of 10–100 km² from 596 to 1,157.
 - **The added measurements are sound.** Where non-ADCP and ADCP measurements were taken the same way at the
   same site and flow, widths agree within 0.1–2.4%.
-- **Held-out error falls most in small streams.** For sites under 10 km², median absolute error in
-  bankfull width falls from 74% to 41% and bias from +61% to +5% when the new sites are added. Overall
-  error improves modestly (23.3% → 22.4%), and accuracy on the original HYDRoSWOT targets is unchanged.
+- **Held-out error falls in every size class, most in small streams.** Against the same model trained on
+  the existing RiverShapeML data, median absolute error in bankfull width falls from 78% to 41% for sites
+  under 10 km² (bias +67% → +5%), and from 25% to 22% overall; depth improves similarly. Scored on the
+  original HYDRoSWOT targets, the expanded model is no worse.
 - **A re-predicted national product with 90% prediction intervals.** The retrained model was run through
   the NOAA-OWP deployment pipeline for every reach, with split-conformal intervals by drainage-area class.
   It sits closer to the Bieger et al. (2015) regional curves in headwaters and removes most physically
@@ -85,18 +86,18 @@ about 2,450 trees). This matched the deployed settings' held-out accuracy with r
 trees and much less fit to the training data (test log R² 0.84 for width, 0.76 for depth). All runs below
 use the same settings, so only the training data differ.
 
-**Experiment.** Three training sets, scored with 5-fold cross-validation grouped by reach, repeated with 3
-seeds:
+**Experiment.** One comparison, with everything but the training data held fixed:
 
-| Run | Sites | Targets |
+| Run | Training sites | Targets built from |
 |---|---|---|
-| A | Existing RiverShapeML sites | HYDRoSWOT measurements only |
-| B1 | Existing RiverShapeML sites | All USGS measurements |
-| B2 | B1 plus new sites | All USGS measurements |
+| A, existing RiverShapeML data | Existing RiverShapeML sites | HYDRoSWOT measurements only |
+| B2, expanded training set | Existing plus new sites | All USGS measurements |
 
-B1 versus B2 isolates the value of new sites. As a reproduction check, all three runs are also scored
-against HYDRoSWOT-only targets, to confirm that the added data do not degrade accuracy on the original
-problem. Error is reported as ln(predicted / observed), summarized as median absolute error (%), median bias
+Both are scored with 5-fold cross-validation grouped by reach (3 seeds) on the same held-out sites, against
+the all-measurement targets, which rest on about ten times more measurements per site. Because A never
+trained on those targets, both runs are also scored against the HYDRoSWOT-only targets (the reproduction
+check). HYDRoSWOT records maximum rather than mean depth, so A's depth target uses mean depth from the USGS
+records of the same HYDRoSWOT visits (97% match by date and discharge). Error is reported as ln(predicted / observed), summarized as median absolute error (%), median bias
 (%), share of sites within a factor of 2, and R² in log space.
 
 **Prediction intervals.** The B2 model was refit on all sites and applied to every reach through the
@@ -131,29 +132,31 @@ and the joint fit absorb most of it. Repeat-measurement scatter sets a noise flo
 14–19% for depth. The joint AHG fit changes the median width target by less than 1% relative to a plain
 log-log fit but corrects poorly conditioned sites (e.g., Walnut Creek: 28.1 m → 19.0 m).
 
-### Held-out error falls most where data were added
+### Held-out error falls in every size class, most in small streams
 
 ![](fig_errors.png)
 
-*Figure 2. Held-out median absolute error and median bias by drainage-area class, without (B1) and with
-(B2) the new sites. Same model settings, same held-out sites.*
+*Figure 2. Held-out median absolute error and median bias by drainage-area class: the same model trained
+on the existing RiverShapeML data (A) and on the expanded training set (B2). Same settings, same held-out
+sites.*
 
-| Bankfull width | Median abs. error | Within 2× | Bias | Log R² |
-|---|---:|---:|---:|---:|
-| A (HYDRoSWOT targets) | 25.4% | – | – | 0.766 |
-| B1 (all measurements) | 23.3% | 90.5% | +2.4% | 0.790 |
-| B2 (+ new sites) | 22.4% | 92.3% | +1.4% | 0.816 |
-| B1 → B2, < 10 km² | 74.5% → 41.1% | 48% → 70% | +61% → +4.9% | 0.39 → 0.64 |
-| B1 → B2, 10–100 km² | 26.2% → 23.9% | – | +6.3% → +1.3% | 0.43 → 0.56 |
+| | Width: A → B2 | Depth: A → B2 |
+|---|---|---|
+| Median absolute error, all sites | 25.4% → 22.4% | 23.8% → 20.9% |
+| Median absolute error, < 10 km² | 78% → 41% | 72% → 32% |
+| Median bias, < 10 km² | +67% → +5% | +72% → +7% |
+| Within a factor of 2, all sites | 89% → 92% | 89% → 94% |
+| Log R², all sites | 0.77 → 0.82 | 0.66 → 0.76 |
 
-For depth, overall error falls from 22.4% to 20.9% (log R² 0.715 → 0.762), and for sites under 10 km² from
-44.5% to 32.5% (bias +40% → +7%). In the largest basins (> 10,000 km²) the change is small (width 20.8% →
-20.0%), as expected where data were already plentiful. For context, the repeat-measurement noise floor
-implies that no model can do much better than about 10–15% median error on width.
+The model trained on the existing data overpredicts small streams because it has almost no small streams to
+learn from; the new sites remove most of that bias. Gains are smaller but consistent in larger basins (width
+25% → 20% above 10,000 km²). Overall, about half to two-thirds of the gain comes from the better-constrained
+targets at existing sites; in small streams nearly all of it comes from the new sites. For context, repeat-measurement scatter means no model can do
+much better than about 10–15% median error on width.
 
-**Reproduction check.** Scored against the original HYDRoSWOT-only targets (3,658 sites), the three runs are
-indistinguishable: median absolute error 20.8% (A), 20.3% (B1), 20.0% (B2); log R² 0.826, 0.813, 0.816. The
-added data help on the broader target set without costing accuracy on the original one.
+**Reproduction check.** Scored against the HYDRoSWOT-only targets at existing sites, the two runs are within
+a percentage point: width 20.8% (A) vs 20.0% (B2), depth 18.3% vs 18.4%. The expanded model gives up
+nothing on the original problem.
 
 ### A re-predicted national product
 
@@ -172,7 +175,10 @@ and the Bieger et al. (2015) regional curves. The shaded region holds 44% of rea
 | Depth–drainage-area exponent (Bieger: 0.25) | 0.16 | 0.12 | 0.00 |
 | Median ratio to Bieger width | 1.84 | 2.88 | 3.28 |
 
-Above 100 km² the three ML products agree closely (median widths within about 10%). Below 10 km² they
+Between 100 and 10,000 km² the three ML products agree closely (median widths within about 10%). Above
+10,000 km² the current model runs wider (median 152 m, against 122 m for the retrain and 110 m for the 2024
+release), and all curves wobble there because few reaches fall in each bin and large rivers of different
+character (e.g., the Colorado and the Missouri) share them. Below 10 km² they
 diverge: median widths are 9.1 m (expanded-set retrain), 17.6 m (current model), 26.5 m (2024 release) and
 3.5 m (Bieger). Downstream scaling moves toward the regional curves, and implausibly wide reaches nearly
 disappear. Prediction intervals are honest about where the model knows least: for width they span roughly

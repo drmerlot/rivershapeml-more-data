@@ -1,6 +1,6 @@
 """Figures for the memo, from the pipeline outputs in data/derived/.
 
-  fig_errors.png  : held-out error and bias by drainage area, without vs with the new sites (B1 vs B2)
+  fig_errors.png  : held-out error and bias by drainage area, existing RiverShapeML data vs the expanded set (A vs B2)
   fig_product.png : median bankfull width vs drainage area for the four products, with the 90% prediction band
 
 Usage: python memo/make_figures.py   (after ./run_all.sh)
@@ -33,16 +33,16 @@ def fig_errors():
     x = np.arange(len(LABELS))
     for row, (target, name) in enumerate([("TW_bf", "Bankfull width"), ("Y_bf", "Bankfull depth")]):
         p = pd.read_parquet(DER / f"runs/riverml_{target}/predictions.parquet")
-        s = summarize(p[p.variant.isin(["B1_better_targets", "B2_plus_new_sites"])], ["da_bin"])
+        s = summarize(p[p.variant.isin(["A_status_quo", "B2_plus_new_sites"])], ["da_bin"])
         s["da_bin"] = s.da_bin.astype(str)
         for col, (metric, title) in enumerate([("median_abs_err_%", "Median absolute error (%)"),
                                                ("bias_%", "Median bias (%)")]):
             ax = axes[row, col]
-            for k, (v, color, lab) in enumerate([("B1_better_targets", ORANGE, "Without new sites (B1)"),
-                                                 ("B2_plus_new_sites", GREEN, "With new sites (B2)")]):
+            for k, (v, color, lab) in enumerate([("A_status_quo", BLUE, "Existing RiverShapeML data (A)"),
+                                                 ("B2_plus_new_sites", GREEN, "Expanded training set (B2)")]):
                 vals = s[s.variant == v].set_index("da_bin").reindex(LABELS)[metric].to_numpy()
                 bars = ax.bar(x + (k - 0.5) * 0.36, vals, 0.34, color=color, label=lab, edgecolor="white", linewidth=1)
-                ax.bar_label(bars, labels=[f"{v:.0f}".replace("-0", "0") if abs(v) < 0.5 else f"{v:.0f}" for v in vals],
+                ax.bar_label(bars, labels=[f"{abs(v):.0f}" if abs(v) < 0.5 else f"{v:.0f}" for v in vals],
                              fontsize=7, color=MUTED, padding=1.5)
             ax.axhline(0, color=MUTED, linewidth=0.8)
             ax.set_title(f"{name}: {title.lower()}", fontsize=9, color=INK, loc="left")

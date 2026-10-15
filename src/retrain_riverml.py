@@ -3,7 +3,7 @@ engineered exactly as their pipeline does) and a regularized, early-stopped vers
 (MODEL_PARAMS), with our targets. All variants use the same settings, so only the training data differs.
 
 Variants (all scored on the same held-out sites, folds grouped by COMID):
-  A   status quo      : existing sites, HYDRoSWOT-only targets        (width only)
+  A   status quo      : existing sites, HYDRoSWOT-only targets (depth: mean depth of the HYDRoSWOT visits)
   B1  better targets  : existing sites, all-measurement targets
   B2  + new sites     : B1 plus new sites
 Targets are converted to meters and modeled as log1p(m), as their models are. Errors are ln(pred / target).
@@ -28,7 +28,7 @@ RAW = Path(__file__).resolve().parents[1] / "data/raw"
 FT = 0.3048
 N_FOLDS = 5
 BINS, LABELS = [0, 10, 100, 1000, 1e4, 1e7], ["<10", "10-100", "100-1k", "1k-10k", ">10k"]
-TARGET_COLS = {"TW_bf": ("tw_all", "tw_hs"), "Y_bf": ("td_all", None)}
+TARGET_COLS = {"TW_bf": ("tw_all", "tw_hs"), "Y_bf": ("td_all", "td_hs")}
 pd.set_option("display.width", 200)
 
 
