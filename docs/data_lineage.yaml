@@ -1,6 +1,6 @@
-# Data model: every table this project reads or writes, where it came from, and the math connecting them.
-# One source of truth. src/data_model.py checks it against the files on disk and the paths used in src/,
-# fills in live row counts, and renders docs/data_model.md and the Mermaid diagrams used in the notebook.
+# Data lineage: every table this project reads or writes, where it came from, and the math connecting them.
+# One source of truth. src/data_lineage.py checks it against the files on disk and the paths used in src/,
+# fills in live row counts, and renders docs/data_lineage.md and the Mermaid diagrams used in the notebook.
 #
 # Tables: id -> chapter, title, path (glob ok; null = not stored), grain, key, source, columns {name: "unit; meaning"}
 # Operations: id -> chapter, title, script, inputs [table ids], outputs [table ids], math [steps]
@@ -225,6 +225,34 @@ tables:
       notes: "with model_space/final_model_features_<target>.json (30 features, in order) and model_space/metrics/median_imput_<target>.parquet (fill-in medians)"
     columns:
       XGBRegressor: "TW_bf: 9,765 trees; Y_bf: 11,000; learning rate 0.01, depth 9, subsample 0.8, colsample 0.7"
+
+  riverml_feature_lists:
+    chapter: A
+    title: RiverShapeML model feature lists
+    path: data/raw/predict-riverML/model_space/final_model_features_*.json
+    grain: one model (TW_bf, Y_bf, r)
+    key: [target]
+    source:
+      provider: NOAA-OWP/predict-riverML
+      version: commit 34302969af21172dd0b80f23cc9a1b003dd0a6ea
+      retrieved: 2026-10-15
+      script: get_data.sh
+    columns:
+      (list): "the 30 engineered features each model expects, in order"
+
+  riverml_fill_medians:
+    chapter: A
+    title: RiverShapeML fill-in medians
+    path: data/raw/predict-riverML/model_space/metrics/median_imput_*.parquet
+    grain: one input feature per model
+    key: [target, feature]
+    source:
+      provider: NOAA-OWP/predict-riverML
+      version: commit 34302969af21172dd0b80f23cc9a1b003dd0a6ea
+      retrieved: 2026-10-15
+      script: get_data.sh
+    columns:
+      Median: "feature units; value used to fill missing inputs before feature engineering"
 
   hydroshare_2024:
     chapter: A
@@ -601,7 +629,7 @@ operations:
     chapter: E
     title: Engineer features and join
     script: src/riverml_pipeline.py (load_features)
-    inputs: [ml_inputs, riverml_models, targets]
+    inputs: [ml_inputs, riverml_feature_lists, riverml_fill_medians, targets, e2nhdplus]
     outputs: [training_table]
     math:
       - "fill missing with their saved medians; StreamPower = nwm_max x slope; unit_discharge = bf_ff / TotDASqKM; log_discharge = ln(1 + bf_ff); ... (their engineer_features)"
@@ -628,7 +656,7 @@ operations:
     chapter: F
     title: Run the current model on every reach
     script: src/predict_baseline.py
-    inputs: [ml_inputs, riverml_models]
+    inputs: [ml_inputs, riverml_models, riverml_feature_lists, riverml_fill_medians]
     outputs: [product_current]
     math:
       - "W = |exp(f(x)) - 1| with their model f, their features x"

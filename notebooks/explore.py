@@ -68,11 +68,84 @@ def _(DER, mo):
 
 
 @app.cell
-def _(BINS, DER, LABELS, pd):
+def _(DER, json, mo):
+    import sys as _sys2
+    _sys2.path.insert(0, str(DER.parents[1] / "src"))
+    import yaml as _yaml
+    import data_lineage as dl
+    lineage = _yaml.safe_load((DER.parents[1] / "docs/data_lineage.yaml").read_text())
+    _cp = DER.parents[1] / "docs/data_lineage_counts.json"
+    lineage_counts = json.loads(_cp.read_text()) if _cp.exists() else {}
+    mo.vstack([
+        mo.md("""
+    ### Data lineage
+
+    Every table in the final pipeline, where it came from (source, query, version, download date) and the math that
+    connects them. Gray = table (row count), dashed = table from another chapter, teal = operation. Generated from
+    `docs/data_lineage.yaml`; `python src/data_lineage.py` checks the spec against the code and files.
+    """),
+        mo.mermaid(dl.mermaid(lineage, lineage_counts)),
+    ])
+    return dl, lineage, lineage_counts
+
+
+@app.cell
+def _(lineage, mo):
+    chapter_pick = mo.ui.dropdown({f"{c}. {t}": c for c, t in lineage["chapters"].items()},
+                                  value=f"C. {lineage['chapters']['C']}", label="Chapter")
+    chapter_pick
+    return (chapter_pick,)
+
+
+@app.cell
+def _(chapter_pick, dl, lineage, lineage_counts, mo):
+    _c = chapter_pick.value
+    _T, _O = lineage["tables"], lineage["operations"]
+    _tables = {f"{t['title']}": mo.md(dl.table_card(k, t, lineage_counts.get(k))) for k, t in _T.items() if t["chapter"] == _c}
+    _ops = {f"{o['title']}": mo.md(dl.op_card(k, o, _T)) for k, o in _O.items() if o["chapter"] == _c}
+    mo.vstack([mo.mermaid(dl.mermaid(lineage, lineage_counts, _c)),
+               mo.md("**Tables**"), mo.accordion(_tables),
+               *([mo.md("**Operations**"), mo.accordion(_ops)] if _ops else [])])
+    return
+
+
+@app.cell
+def _(DER, RAW, mo, np, pd):
+    _site, _comid = "08158200", 5781217
+    _sl = pd.read_csv(DER / "retrain_sites.csv", dtype={"site_no": str}).query("site_no == @_site").iloc[0]
+    _ai = pd.read_parquet(DER / "ahg_input.parquet", filters=[("site_no", "==", _site)])
+    _fit = pd.read_parquet(DER / "ahg_fits.parquet").query("site_no == @_site and set == 'all'").iloc[0]
+    _t = pd.read_csv(DER / "retrain_targets.csv", dtype={"site_no": str}).query("site_no == @_site").iloc[0]
+    _runs = {t: pd.read_parquet(DER / f"runs/riverml_{t}/predictions.parquet").query("site_no == @_site")
+             for t in ["TW_bf", "Y_bf"]}
+    _err = {t: (100 * (np.exp(r.groupby("variant").log_err.mean()) - 1)).round(0).to_dict() for t, r in _runs.items()}
+    _p = pd.read_parquet(DER / "product_compare.parquet").query("comid == @_comid").iloc[0]
+    _n_raw = sum(len(pd.read_parquet(f, columns=["monitoring_location_id"]).query("monitoring_location_id == 'USGS-08158200'"))
+                 for f in sorted((RAW / "channel_meas").glob("page_*.parquet")))
+    _rows = [
+        ("A", "USGS channel measurements", f"{_n_raw} records for USGS-08158200 (all years)"),
+        ("B", "Site list", f"group = {_sl.group}, reach (COMID) = {int(_sl.comid)}"),
+        ("C", "AHG input", f"{(_ai.set == 'all').sum()} measurements since 2000 after sanity rules (+ {(_ai.set == 'hs').sum()} HYDRoSWOT, 2000-2015)"),
+        ("C", "AHG fits", f"W = {_fit.TW_coef:.3f}·Q^{_fit.TW_exp:.3f}, D = {_fit.Y_coef:.3f}·Q^{_fit.Y_exp:.3f}, V = {_fit.V_coef:.3f}·Q^{_fit.V_exp:.3f} "
+                          f"(m, m³/s; {int(_fit.n_used)} of {int(_fit.n_in)} used; exponents sum {_fit.TW_exp + _fit.Y_exp + _fit.V_exp:.3f})"),
+        ("C", "Targets", f"Q₂ = {_t.q2:,.0f} ft³/s → bankfull width {_t.tw_all * 0.3048:.2f} m, depth {_t.td_all * 0.3048:.2f} m "
+                         f"(SE {_t.se_all:.3f}; Q₂ / max Q = {_t.ext_all:.2f})"),
+        ("E", "Held-out predictions", f"mean error, width: {_err['TW_bf']}; depth: {_err['Y_bf']} (%)"),
+        ("F", "Expanded-set retrain", f"width {_p.ours_tw_bf_m:.1f} m (90% PI {_p.ours_tw_bf_m_p05:.1f}–{_p.ours_tw_bf_m_p95:.1f}), "
+                                      f"depth {_p.ours_y_bf_m:.2f} m (90% PI {_p.ours_y_bf_m_p05:.2f}–{_p.ours_y_bf_m_p95:.2f})"),
+        ("F", "Comparison", f"current model {_p.deployed_tw_bf_m:.1f} m / {_p.deployed_y_bf_m:.2f} m · 2024 release "
+                            f"{_p.hydroshare_tw_bf_m:.1f} m / {_p.hydroshare_y_bf_m:.2f} m · Bieger {_p.bieger_tw_bf_m:.1f} m / {_p.bieger_y_bf_m:.2f} m"),
+    ]
+    mo.accordion({"Follow one site through every table: Walnut Ck at Dessau Rd, Austin (USGS 08158200)":
+                  pd.DataFrame(_rows, columns=["chapter", "table", "Walnut Creek"])})
+    return
+
+
+@app.cell
+def _(BINS, DER, LABELS, RAW, pd):
     targets = pd.read_csv(DER / "retrain_targets.csv", dtype={"site_no": str})
-    features = pd.read_csv(DER / "retrain_features.csv", dtype={"site_no": str})
-    nwm_q2 = pd.read_csv(DER / "nwm_q2.csv")
-    sites = targets.merge(features.drop(columns="comid"), on="site_no", how="left").merge(nwm_q2, on="comid", how="left")
+    _da = pd.read_parquet(RAW / "enhd/enhd_nhdplusatts.parquet", columns=["comid", "totdasqkm"])
+    sites = targets.merge(_da, on="comid", how="left")
     sites["da_bin"] = pd.cut(sites.totdasqkm, BINS, labels=LABELS)
     return sites, targets
 
@@ -273,42 +346,7 @@ def _(C1, C2, alt, ext_slider, mo, pd, se_slider, targets):
 @app.cell
 def _(mo):
     mo.md("""
-    ## 4. NWM vs gage 2-year flood
-    """)
-    return
-
-
-@app.cell
-def _(LABELS, mo):
-    da_pick = mo.ui.multiselect(options=LABELS, value=LABELS, label="Drainage area (km²)")
-    da_pick
-    return (da_pick,)
-
-
-@app.cell
-def _(LABELS, C1, alt, da_pick, mo, np, pd, sites):
-    _s = sites.dropna(subset=["q2", "nwm_q2"])
-    _s = _s[(_s.nwm_q2 > 0) & _s.da_bin.astype(str).isin(da_pick.value)]
-    _s = _s.assign(ratio=(_s.nwm_q2 / _s.q2).round(3), da_bin=_s.da_bin.astype(str))[
-        ["site_no", "da_bin", "q2", "nwm_q2", "ratio"]].round({"q2": 1, "nwm_q2": 1})
-    _lim = [max(1, _s[["q2", "nwm_q2"]].min().min()), _s[["q2", "nwm_q2"]].max().max()]
-    _pts = alt.Chart(_s).mark_circle(size=16, opacity=0.5, color=C1).encode(
-        x=alt.X("q2:Q", scale=alt.Scale(type="log"), title="Gage 2-yr flood (cfs)"),
-        y=alt.Y("nwm_q2:Q", scale=alt.Scale(type="log"), title="NWM v2.1 2-yr flood (cfs)"),
-        tooltip=["site_no", "da_bin", "q2", "nwm_q2", "ratio"])
-    _one = alt.Chart(pd.DataFrame({"x": _lim, "y": _lim})).mark_line(color="#52514e", strokeDash=[4, 3]).encode(x="x", y="y")
-    _tbl = _s.groupby("da_bin", observed=True).ratio.agg(
-        sites="size", median="median", p10=lambda r: r.quantile(.1), p90=lambda r: r.quantile(.9)).round(2).reindex([_l for _l in LABELS if _l in set(_s.da_bin)])
-    mo.hstack([(_pts + _one).properties(width=420, height=360, title="Dashed line = perfect agreement"),
-               mo.vstack([mo.md("**NWM ÷ gage, by drainage area**"), _tbl,
-                          mo.md(f"log R² = {np.corrcoef(np.log(_s.q2), np.log(_s.nwm_q2))[0, 1] ** 2:.2f}")])])
-    return
-
-
-@app.cell
-def _(mo):
-    mo.md("""
-    ## 5. Training runs
+    ## 4. Training runs
 
     Each run trains **A** (existing sites, HYDRoSWOT-only targets), **B1** (existing sites, all-measurement
     targets) and **B2** (B1 + new sites), scored on the same held-out sites. **B1 vs B2 is the clean
@@ -326,7 +364,7 @@ def _(mo):
 def _(DER, mo):
     run_names = sorted(p.name for p in (DER / "runs").iterdir() if (p / "predictions.parquet").exists())
     mo.stop(not run_names, mo.md("_No finished runs yet: run `python src/retrain_experiment.py`, then re-run this cell._"))
-    run_pick = mo.ui.dropdown(run_names, value="nwm_default" if "nwm_default" in run_names else run_names[0], label="Run")
+    run_pick = mo.ui.dropdown(run_names, value="riverml_TW_bf" if "riverml_TW_bf" in run_names else run_names[0], label="Run")
     variant_pick = mo.ui.multiselect(["A_status_quo", "B1_better_targets", "B2_plus_new_sites"],
                                      value=["A_status_quo", "B1_better_targets", "B2_plus_new_sites"], label="Variants")
     mo.hstack([run_pick, variant_pick], justify="start", gap=2)
@@ -394,7 +432,7 @@ def _(LABELS, METRICS, VARIANT_COLORS, alt, mo, preds, summarize, variant_pick):
 @app.cell
 def _(mo):
     mo.md("""
-    ## 6. Compare runs
+    ## 5. Compare runs
     """)
     return
 
@@ -424,7 +462,7 @@ def _(DER, load_preds, metric_pick, pd, run_names, summarize):
 @app.cell
 def _(mo):
     mo.md("""
-    ## 7. Site explorer
+    ## 6. Site explorer
     """)
     return
 
@@ -473,7 +511,7 @@ def _(C1, C2, alt, hydroswot, meas, mo, np, pd, preds, site_pick, sites):
         y=alt.Y("channel_width:Q", scale=alt.Scale(type="log"), title="Width (ft)"),
         color=alt.Color("source:N", scale=alt.Scale(domain=["other USGS", "HYDRoSWOT"], range=[C1, C2])),
         tooltip=["time", "channel_flow", "channel_width", "measurement_type", "source"])
-    _rules = pd.DataFrame({"q": [_row.q2, _row.nwm_q2], "label": ["2-yr flood (gage)", "2-yr flood (NWM)"]}).dropna()
+    _rules = pd.DataFrame({"q": [_row.q2], "label": ["2-yr flood (gage)"]}).dropna()
     _r = alt.Chart(_rules).mark_rule(strokeDash=[4, 3]).encode(
         x="q:Q", strokeDash=alt.StrokeDash("label:N", legend=alt.Legend(title=None)), tooltip=["label", "q"])
     _t = alt.Chart(pd.DataFrame({"q": [_row.q2], "w": [_row.tw_all]}).dropna()).mark_point(
@@ -491,7 +529,7 @@ def _(C1, C2, alt, hydroswot, meas, mo, np, pd, preds, site_pick, sites):
 @app.cell
 def _(mo):
     mo.md("""
-    ## 8. The re-predicted product
+    ## 7. The re-predicted product
 
     Four versions of bankfull width and depth for ~2.6M reaches:
     **ours** (the expanded-set retrain, with 90% prediction intervals) · **deployed** (RiverShapeML's current models,

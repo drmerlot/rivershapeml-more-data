@@ -11,4 +11,4 @@ python silverway.py && python target_flows.py
 echo; echo "== E. Model experiments (current model's features and settings)"
 python retrain_riverml.py --target TW_bf && python retrain_riverml.py --target Y_bf && python train_eval.py
 echo; echo "== F. Product";                    python predict_baseline.py && python predict_product.py && python build_product_compare.py
-echo; echo "== Data model check";              python data_model.py
+echo; echo "== Data lineage check";            python data_lineage.py

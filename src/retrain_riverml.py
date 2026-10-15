@@ -23,6 +23,7 @@ from metrics import summarize
 from riverml_pipeline import THEIR_PARAMS, load_features
 
 DER = Path(__file__).resolve().parents[1] / "data/derived"
+RAW = Path(__file__).resolve().parents[1] / "data/raw"
 FT = 0.3048
 N_FOLDS = 5
 BINS, LABELS = [0, 10, 100, 1000, 1e4, 1e7], ["<10", "10-100", "100-1k", "1k-10k", ">10k"]
@@ -44,11 +45,11 @@ def main(target="TW_bf", n_seeds=3, name=None):
         variants = {"A_status_quo": (y_hs, {"existing"}), **variants}
 
     t = pd.read_csv(DER / "retrain_targets.csv", dtype={"site_no": str})
-    da = pd.read_csv(DER / "retrain_features.csv", dtype={"site_no": str})[["site_no", "totdasqkm"]]
+    da = pd.read_parquet(RAW / "enhd/enhd_nhdplusatts.parquet", columns=["comid", "totdasqkm"])
     X, ids = load_features(target, t.comid.astype(int).unique())
     X.insert(0, "comid", ids)
     feats = [c for c in X.columns if c != "comid"]
-    d = t.merge(da, on="site_no", how="left").merge(X, on="comid", how="inner").reset_index(drop=True)
+    d = t.merge(da, on="comid", how="left").merge(X, on="comid", how="inner").reset_index(drop=True)
     d["da_bin"] = pd.cut(d.totdasqkm, BINS, labels=LABELS)
     for c in [y_all, y_hs]:
         if c:

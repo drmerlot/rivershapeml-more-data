@@ -29,6 +29,10 @@ features and settings. The training data, targets and code in
 
 ![Process overview](docs/process_overview.svg)
 
+**Data lineage:** every table in the pipeline, where it came from (source, query, version, download date) and the math
+connecting them, in [docs/data_lineage.md](docs/data_lineage.md) (generated from [docs/data_lineage.yaml](docs/data_lineage.yaml);
+`python src/data_lineage.py` checks the spec against the code and files).
+
 ## Findings
 
 | Question | Result | Script |
