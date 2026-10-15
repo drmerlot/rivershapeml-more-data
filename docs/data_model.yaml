@@ -1,0 +1,660 @@
+# Data model: every table this project reads or writes, where it came from, and the math connecting them.
+# One source of truth. src/data_model.py checks it against the files on disk and the paths used in src/,
+# fills in live row counts, and renders docs/data_model.md and the Mermaid diagrams used in the notebook.
+#
+# Tables: id -> chapter, title, path (glob ok; null = not stored), grain, key, source, columns {name: "unit; meaning"}
+# Operations: id -> chapter, title, script, inputs [table ids], outputs [table ids], math [steps]
+# Chapters: A sources, B site selection, C targets, D data checks, E model experiments, F product.
+# Scope: only what a full re-run of the final analysis uses (./get_data.sh, then ./run_all.sh). Earlier exploratory
+# steps that informed choices but are not re-run are deliberately left out.
+
+chapters:
+  A: Sources (external, as downloaded)
+  B: Site selection
+  C: Targets (y)
+  D: Data checks
+  E: Model experiments
+  F: Product
+
+tables:
+  # ---------------------------------------------------------------- A. sources
+  usgs_channel_measurements:
+    chapter: A
+    title: USGS channel measurements (national)
+    path: data/raw/channel_meas/page_*.parquet
+    grain: one channel of one streamflow measurement visit
+    key: [monitoring_location_id, time, channel_name]
+    source:
+      provider: USGS Water Data APIs (OGC API - Features)
+      endpoint: https://api.waterdata.usgs.gov/ogcapi/v0/collections/channel-measurements/items
+      query: "properties=monitoring_location_id,time,channel_flow,channel_width,channel_area,measurement_type,channel_name; paged 20,000 rows by cursor"
+      retrieved: 2026-10-14
+      script: src/fetch_usgs_ogc.py channel-measurements
+      notes: "~14 records the server could not return were stepped over (logged in data/raw/channel_meas/log.txt)"
+    columns:
+      monitoring_location_id: "text; USGS-<site number>"
+      time: "UTC timestamp; measurement time"
+      channel_flow: "ft3/s; measured discharge"
+      channel_width: "ft; water-surface width"
+      channel_area: "ft2; cross-section area"
+      measurement_type: "text; Wading, BridgeDownstreamSide, MannedMovingBoat, Cableway, Ice, ..."
+      channel_name: "text; channel label when a measurement has several channels"
+
+  usgs_channel_measurements_by_site:
+    chapter: A
+    title: USGS channel measurements for 300 sampled sites, with location fields
+    path: data/raw/channel_meas_by_site/*.parquet
+    grain: one channel of one measurement visit, at 300 randomly sampled width-training sites (seed 1)
+    key: [monitoring_location_id, time, channel_name]
+    source:
+      provider: USGS Water Data APIs
+      endpoint: https://api.waterdata.usgs.gov/ogcapi/v0/collections/channel-measurements/items
+      query: "monitoring_location_id=USGS-<site>; adds channel_location_distance, channel_location_direction, channel_material, channel_stability"
+      retrieved: 2026-10-15
+      script: src/method_agreement.py (fetch)
+    columns:
+      channel_location_distance: "ft; distance of the measurement section from the gage"
+      channel_location_direction: "text; Upstream, Downstream, AtTheGage"
+      channel_material: "text; bed material"
+      channel_stability: "text; channel stability"
+      (others): "as usgs_channel_measurements"
+
+  usgs_peaks:
+    chapter: A
+    title: USGS annual peak streamflow
+    path: data/raw/peaks/page_*.parquet
+    grain: one gage-water year
+    key: [monitoring_location_id, water_year]
+    source:
+      provider: USGS Water Data APIs
+      endpoint: https://api.waterdata.usgs.gov/ogcapi/v0/collections/peaks/items
+      query: "parameter_code=00060 (discharge); properties=monitoring_location_id,value,water_year,qualifier"
+      retrieved: 2026-10-15
+      script: src/fetch_usgs_ogc.py peaks
+    columns:
+      value: "ft3/s; instantaneous annual peak discharge"
+      water_year: "year; October-September water year"
+      qualifier: "text; USGS peak qualification codes (not used)"
+
+  usgs_monitoring_locations:
+    chapter: A
+    title: USGS stream gage catalog
+    path: data/raw/monitoring_locations/page_*.parquet
+    grain: one stream site
+    key: [id]
+    source:
+      provider: USGS Water Data APIs
+      endpoint: https://api.waterdata.usgs.gov/ogcapi/v0/collections/monitoring-locations/items
+      query: "site_type_code=ST; with point geometry"
+      retrieved: 2026-10-15
+      script: src/fetch_usgs_ogc.py monitoring-locations
+    columns:
+      id: "text; USGS-<site number>"
+      state_code: "text; FIPS state code (CONUS filter)"
+      drainage_area: "mi2; drainage area (x 2.58999 -> km2)"
+      lon: "degrees; longitude"
+      lat: "degrees; latitude"
+
+  usgs_ts_meta:
+    chapter: A
+    title: USGS daily-discharge record metadata
+    path: data/raw/ts_meta/page_*.parquet
+    grain: one time series at one site
+    key: [monitoring_location_id, parameter_code, statistic_id]
+    source:
+      provider: USGS Water Data APIs
+      endpoint: https://api.waterdata.usgs.gov/ogcapi/v0/collections/time-series-metadata/items
+      query: "parameter_code=00060 (discharge), statistic_id=00003 (daily mean)"
+      retrieved: 2026-10-14
+      script: src/fetch_usgs_ogc.py time-series-metadata
+    columns:
+      begin: "date; first daily value"
+      end: "date; last daily value"
+
+  nldi_gage_reach_links:
+    chapter: A
+    title: USGS NLDI gage-to-reach links
+    path: null  # responses stored only as the comid column of retrain_sites
+    grain: one gage
+    key: [site_no]
+    source:
+      provider: USGS Network-Linked Data Index (NLDI)
+      endpoint: https://api.water.usgs.gov/nldi/linked-data/nwissite/USGS-<site>?f=json
+      retrieved: 2026-10-15
+      script: src/site_comids.py (nldi_comid)
+    columns:
+      comid: "integer; NHDPlusV2 reach the gage is indexed to (null when not indexed)"
+
+  silverway_measurements:
+    chapter: A
+    title: USGS channel measurements at Shoal Ck at Silverway Dr (08156675)
+    path: data/raw/usgs_channel-measurements_08156675.json
+    grain: one channel of one measurement visit at one gage
+    key: [time, channel_name]
+    source:
+      provider: USGS Water Data APIs
+      endpoint: https://api.waterdata.usgs.gov/ogcapi/v0/collections/channel-measurements/items
+      query: "monitoring_location_id=USGS-08156675 (all properties)"
+      retrieved: 2026-10-14
+      script: src/silverway.py (downloads if missing)
+    columns:
+      (all): "as usgs_channel_measurements, all properties"
+
+  hydroswot:
+    chapter: A
+    title: HYDRoSWOT, RiverShapeML's copy
+    path: data/raw/repo/RiverShapeML/data/adcp.parquet
+    grain: one ADCP measurement
+    key: [site_no, site_visit_start_dt]
+    source:
+      provider: lynker-spatial/RiverShapeML (copy of USGS HYDRoSWOT; Canova et al. 2016, doi:10.5066/F7D798H6)
+      endpoint: https://github.com/lynker-spatial/RiverShapeML
+      version: commit 29c1209cf5396ebf06f53578a32ad2a8cf70ab0f
+      retrieved: 2026-10-14
+      script: get_data.sh
+    columns:
+      site_no: "text; USGS site number"
+      site_visit_start_dt: "datetime; measurement time (local)"
+      meas_q_va: "ft3/s; discharge"
+      stream_wdth_va: "ft; width"
+      max_depth_va: "ft; maximum depth (mostly missing; no cross-section area)"
+
+  rsml_width_targets:
+    chapter: A
+    title: RiverShapeML width training targets
+    path: data/raw/repo/RiverShapeML/data/nwis_width_pred_tar_up.parquet
+    grain: one training site
+    key: [siteID]
+    source:
+      provider: lynker-spatial/RiverShapeML
+      version: commit 29c1209cf5396ebf06f53578a32ad2a8cf70ab0f
+      retrieved: 2026-10-14
+      script: get_data.sh
+    columns:
+      siteID: "text; USGS site number (defines 'existing' sites)"
+      COMID: "integer; NHDPlusV2 reach"
+      bf_ff: "ft3/s; their bankfull (2-year) flood, fitted from NWIS records"
+      in_ff: "ft3/s; their in-channel (100% annual exceedance) flood"
+      TW_bf: "ft; their bankfull width target"
+      R2: "-; their AHG fit R2 (training uses R2 > 0.6)"
+      meas_q_va: "ft3/s; largest measured flow"
+
+  rsml_depth_targets:
+    chapter: A
+    title: RiverShapeML depth training targets
+    path: data/raw/repo/RiverShapeML/data/nwis_depth_pred_tar_up.parquet
+    grain: one training site
+    key: [siteID]
+    source:
+      provider: lynker-spatial/RiverShapeML
+      version: commit 29c1209cf5396ebf06f53578a32ad2a8cf70ab0f
+      retrieved: 2026-10-14
+      script: get_data.sh
+    columns:
+      Y_bf: "ft; their bankfull depth target (spread used for the model-error estimate in noise_floor)"
+
+  ml_inputs:
+    chapter: A
+    title: RiverShapeML deployment inputs (ml_inputs)
+    path: data/raw/predict-riverML/data/ml_inputs.parquet
+    grain: one NHDPlusV2 reach
+    key: [FEATUREID]
+    source:
+      provider: NOAA-OWP/predict-riverML (68 xz parts, reassembled with cat | xz -d as their deploy.bash does)
+      endpoint: https://github.com/NOAA-OWP/predict-riverML
+      version: commit 34302969af21172dd0b80f23cc9a1b003dd0a6ea
+      retrieved: 2026-10-15
+      script: get_data.sh
+    columns:
+      FEATUREID: "integer; NHDPlusV2 COMID"
+      bf_ff: "m3/s-scale NWM v2.1 2-year flood (their units; used only through their feature engineering)"
+      nwm_max: "NWM maximum flow (their units)"
+      "19 raw columns used": "slope, TotDASqKM (km2), LAI, RckDepWs, qsb_tavg, Sinuosity, flowline_type, lat, long, suggested_width_m (m), BFIWs, ArbolateSu, StreamOrde, WtDepWs, roughness, elevation_diff (167 columns in total)"
+
+  riverml_models:
+    chapter: A
+    title: RiverShapeML deployed models and model files
+    path: data/raw/predict-riverML/models/*.pickle.dat
+    grain: one trained model (TW_bf, Y_bf, r)
+    key: [target]
+    source:
+      provider: NOAA-OWP/predict-riverML
+      version: commit 34302969af21172dd0b80f23cc9a1b003dd0a6ea
+      retrieved: 2026-10-15
+      script: get_data.sh
+      notes: "with model_space/final_model_features_<target>.json (30 features, in order) and model_space/metrics/median_imput_<target>.parquet (fill-in medians)"
+    columns:
+      XGBRegressor: "TW_bf: 9,765 trees; Y_bf: 11,000; learning rate 0.01, depth 9, subsample 0.8, colsample 0.7"
+
+  hydroshare_2024:
+    chapter: A
+    title: RiverShapeML 2024 release (ML-derived channel width and depth)
+    path: data/raw/rivershapeml/ml_channel_dimension.parquet
+    grain: "one reach (reach IDs repeat: ~65k duplicates, collapsed to their median when used)"
+    key: [hf_id]
+    source:
+      provider: HydroShare, Modaresi Rad et al.
+      endpoint: https://www.hydroshare.org/resource/d147fcf554a54b2aaa4f146f85da0e03/
+      version: last updated 2024-08-23
+      retrieved: 2026-10-14
+      script: get_data.sh
+    columns:
+      hf_id: "integer; reference-fabric reach ID (= NHDPlusV2 COMID)"
+      tw_bf(m): "m; bankfull width"
+      y_bf(m): "m; bankfull depth"
+      tw_inchan(m): "m; in-channel width"
+      y_inchan(m): "m; in-channel depth"
+
+  bieger_curves:
+    chapter: A
+    title: Bieger et al. (2015) regional bankfull curves applied per reach
+    path: data/raw/bieger/BANKFULL_CONUS.txt
+    grain: one NHDPlusV2 reach
+    key: [COMID]
+    source:
+      provider: USGS ScienceBase, "Select Hydrologic Attributes - Bankfull Hydraulic Geometry Related to Physiographic Divisions"
+      endpoint: https://www.sciencebase.gov/catalog/item/5cf02bdae4b0b51330e22b85
+      version: doi:10.5066/F7765D7V
+      retrieved: 2026-10-15
+      script: get_data.sh
+    columns:
+      BANKFULL_WIDTH: "m; from drainage area by physiographic division (-9999 = no data)"
+      BANKFULL_DEPTH: "m"
+      BANKFULL_XSEC_AREA: "m2 (not used)"
+
+  e2nhdplus:
+    chapter: A
+    title: E2NHDPlusV2 / NWM v2.1 network attributes
+    path: data/raw/enhd/enhd_nhdplusatts.parquet
+    grain: one NHDPlusV2 reach
+    key: [comid]
+    source:
+      provider: USGS ScienceBase, "Updated CONUS river network attributes based on the E2NHDPlusV2 and NWMv2.1 networks (ver. 2.0)"
+      endpoint: https://www.sciencebase.gov/catalog/item/63cb311ed34e06fef14f40a3
+      retrieved: 2026-10-15
+      script: get_data.sh
+    columns:
+      comid: "integer; reach ID"
+      tocomid: "integer; downstream reach"
+      levelpathi: "integer; river (level path) ID"
+      totdasqkm: "km2; total drainage area"
+      streamorde: "-; Strahler stream order"
+      slope: "m/m"
+      roughness: "-; Manning's n"
+      arbolatesu: "km; arbolate sum"
+      gnis_name: "text; river name"
+
+  # ---------------------------------------------------------------- B. site selection
+  candidate_sites:
+    chapter: B
+    title: Candidate sites (all CONUS gages with width measurements)
+    path: data/derived/new_rows_sites.csv
+    grain: one gage with >= 1 usable width measurement since 2000
+    key: [site_no]
+    source: {script: src/new_rows.py}
+    columns:
+      n_meas: "count; measurements since 2000 with Q > 0, W > 0, not ice"
+      conus: "bool"
+      da_km2: "km2; drainage area"
+      flow_years: "years; longest daily-discharge record"
+      in_training: "bool; in rsml_width_targets"
+
+  retrain_sites:
+    chapter: B
+    title: Site list (gage -> reach, existing or new)
+    path: data/derived/retrain_sites.csv
+    grain: one gage
+    key: [site_no]
+    source: {script: src/site_comids.py}
+    columns:
+      group: "text; existing (in RiverShapeML's training targets) or new"
+      comid: "integer; NHDPlusV2 reach (RiverShapeML's for existing, NLDI for new; null if unlinked)"
+
+  # ---------------------------------------------------------------- C. targets
+  ahg_input:
+    chapter: C
+    title: AHG input (measurements in SI, after sanity rules)
+    path: data/derived/ahg_input.parquet
+    grain: one measurement at a site with a reach and a 2-year flood
+    key: [site_no, set, row]
+    source: {script: src/build_targets.py (load_measurements)}
+    columns:
+      set: "text; all (every USGS method, 2000+) or hs (HYDRoSWOT records, 2000-2015)"
+      Q: "m3/s; discharge"
+      TW: "m; top width"
+      Y: "m; mean depth (null for hs)"
+      V: "m/s; mean velocity (null for hs)"
+
+  ahg_fits:
+    chapter: C
+    title: AHG fits per site and data set
+    path: data/derived/ahg_fits.parquet
+    grain: one site x data set (all, hs)
+    key: [site_no, set]
+    source: {script: src/ahg_fit.R (AHGestimation commit in r_ahg_commit.txt)}
+    columns:
+      n_in: "count; measurements in"
+      n_used: "count; after mad_filter and qva_filter"
+      TW_coef: "a; W = a Q^b (m, m3/s)"
+      TW_exp: "b; -"
+      Y_coef: "c; D = c Q^f"
+      Y_exp: "f; -"
+      V_coef: "k; V = k Q^m"
+      V_exp: "m; -"
+      viable: "bool; meets continuity (a c k ~ 1, b + f + m ~ 1) within 5%"
+      error: "text; why a fit failed (e.g. < 5 measurements after filtering)"
+
+  targets:
+    chapter: C
+    title: Targets (bankfull width and depth per site)
+    path: data/derived/retrain_targets.csv
+    grain: one gage
+    key: [site_no]
+    source: {script: src/build_targets.py}
+    columns:
+      q2: "ft3/s; 2-year flood"
+      n_peaks: "count; annual peaks"
+      tw_all: "ft; bankfull width, all measurements (null if filtered out)"
+      td_all: "ft; bankfull mean depth, all measurements"
+      tw_hs: "ft; bankfull width, HYDRoSWOT only"
+      se_all / se_d_all / se_hs: "log units; standard error of the log target at Q2"
+      ext_all / ext_d_all / ext_hs: "-; Q2 / largest measured flow"
+      r2_all / r2_d_all / r2_hs: "-; R2 around the curve (paper's rule, recorded only)"
+      tw_all_exp / td_all_exp: "-; fitted exponents b, f"
+      dropped_inverse_depth: "bool; site dropped because depth falls as flow rises"
+
+  # ---------------------------------------------------------------- D. data checks
+  method_agreement_sites:
+    chapter: D
+    title: Method agreement per site (HYDRoSWOT vs other measurements)
+    path: data/derived/method_agreement_sites.csv
+    grain: one of the 300 sampled sites
+    key: [site_no]
+    source: {script: src/method_agreement.py}
+    columns:
+      n_H / n_N: "count; measurements in / not in HYDRoSWOT"
+      w_consistency_pct / d_consistency_pct: "%; N curve vs H curve over shared flows"
+      w_bf_shift_pct, w_in_shift_pct, d_*: "%; target change when N is added"
+      w_bf_ci_H, w_bf_ci_all, ...: "%; bootstrap 90% interval width of the target"
+
+  method_agreement_types:
+    chapter: D
+    title: Measurement types in vs not in HYDRoSWOT
+    path: data/derived/method_agreement_types.csv
+    grain: one measurement type
+    key: [measurement_type]
+    source: {script: src/method_agreement.py}
+    columns:
+      "True / False": "count; measurements in / not in HYDRoSWOT"
+
+  noise_floor_sites:
+    chapter: D
+    title: Noise floor per site
+    path: data/derived/noise_floor_sites.csv
+    grain: one sampled site
+    key: [site_no]
+    source: {script: src/noise_floor.py}
+    columns:
+      w_in_logdiff, w_bf_logdiff, d_*: "log units; ln(y_N / y_H) at in-channel and bankfull flows"
+      w_bf_both_cover, ...: "bool; both collections measured near that flow"
+
+  depth_gap_measurements:
+    chapter: D
+    title: Depth residuals per measurement (instrument vs location)
+    path: data/derived/depth_gap_measurements.csv
+    grain: one measurement at a sampled site
+    key: [site_no, time]
+    source: {script: src/depth_gap.py}
+    columns:
+      resid: "%; depth relative to the site's pooled depth curve"
+      deploy: "text; Wading, Bridge, Boat, Cableway, ..."
+      src: "text; HYDRoSWOT or other"
+      dist_bin: "text; distance from gage (<=50 ft, 50-200 ft, >200 ft)"
+
+  # ---------------------------------------------------------------- E. model experiments
+  training_table:
+    chapter: E
+    title: Training table (targets joined to the current model's features)
+    path: null  # built in memory by retrain_riverml.py, train_eval.py and predict_product.py
+    grain: one gage with a target and a matched reach
+    key: [site_no]
+    source: {script: src/riverml_pipeline.py (load_features) + src/retrain_riverml.py}
+    columns:
+      y: "-; ln(1 + W_bf in m) (or depth)"
+      "30 features": "the current model's final_model_features list"
+
+  riverml_runs:
+    chapter: E
+    title: Held-out predictions, current model's setup (width and depth)
+    path: data/derived/runs/riverml_*/predictions.parquet
+    grain: one held-out site x repeat (seed) x variant
+    key: [site_no, seed, variant]
+    source: {script: src/retrain_riverml.py}
+    columns:
+      variant: "text; A_status_quo, B1_better_targets, B2_plus_new_sites"
+      log_true: "-; ln(target, m)"
+      log_err: "-; ln(prediction / target)"
+      log_true_hs / log_err_hs: "-; same against HYDRoSWOT-only targets (fairness check)"
+      da_bin: "text; drainage-area class"
+
+  train_eval:
+    chapter: E
+    title: Train / validation / test diagnostics (width and depth)
+    path: data/derived/training/*/*
+    grain: curves = one boosting round; predictions = one site; metrics = one split
+    key: [target, split]
+    source: {script: src/train_eval.py}
+    columns:
+      curves: "RMSE of ln(1 + y) on train, valid, test after each round"
+      predictions: "observed_m, predicted_m, split per site"
+      metrics: "error measures per split (src/metrics.py)"
+
+  # ---------------------------------------------------------------- F. product
+  product_current:
+    chapter: F
+    title: Current model output, all reaches
+    path: data/derived/product_baseline.parquet
+    grain: one reach
+    key: [FEATUREID]
+    source: {script: src/predict_baseline.py}
+    columns:
+      tw_bf_m: "m; bankfull width"
+      y_bf_m: "m; bankfull depth"
+
+  product_expanded:
+    chapter: F
+    title: "ML-derived channel width and depth, expanded-set retrain"
+    path: data/derived/product_ours.parquet
+    grain: one reach
+    key: [FEATUREID]
+    source: {script: src/predict_product.py}
+    columns:
+      tw_bf_m / y_bf_m: "m; bankfull width / depth"
+      tw_bf_m_p05 / tw_bf_m_p95: "m; 90% prediction interval for width"
+      y_bf_m_p05 / y_bf_m_p95: "m; 90% prediction interval for depth"
+      da_bin: "text; drainage-area class used for the interval"
+      streamorde: "-; stream order"
+
+  product_checks:
+    chapter: F
+    title: Product checks report
+    path: data/derived/product_checks.txt
+    grain: report
+    key: []
+    source: {script: src/predict_product.py}
+    columns:
+      (text): "interval factors and coverage, reasonableness checks, distributions"
+
+  product_compare:
+    chapter: F
+    title: Four-product comparison, all reaches
+    path: data/derived/product_compare.parquet
+    grain: one reach with drainage area > 0
+    key: [comid]
+    source: {script: src/build_product_compare.py}
+    columns:
+      ours_*, deployed_*, hydroshare_*, bieger_*: "m; width and depth from each product (+ ours' intervals)"
+      totdasqkm, streamorde, gnis_name: "from e2nhdplus"
+      lat, long: "degrees; from ml_inputs"
+
+  measurement_cache:
+    chapter: F
+    title: Notebook measurement cache
+    path: data/derived/retrain_measurements.parquet
+    grain: one measurement at a retrain site, since 2000
+    key: [site_no, time]
+    source: {script: notebooks/explore.py (site explorer)}
+    columns:
+      (all): "channel_flow (ft3/s), channel_width (ft), measurement_type, time"
+
+operations:
+  # B
+  count_candidates:
+    chapter: B
+    title: Count candidate sites
+    script: src/new_rows.py
+    inputs: [usgs_channel_measurements, usgs_monitoring_locations, usgs_ts_meta, rsml_width_targets]
+    outputs: [candidate_sites]
+    math:
+      - "n_meas = number of measurements since 2000 with Q > 0, W > 0, not under ice"
+      - "flow_years = max over daily-mean discharge series of (end - begin) / 365.25"
+      - "candidate (new) = CONUS and not in RiverShapeML's targets and n_meas >= 5 and flow_years >= 10"
+  link_reaches:
+    chapter: B
+    title: Link gages to reaches
+    script: src/site_comids.py
+    inputs: [candidate_sites, rsml_width_targets, nldi_gage_reach_links]
+    outputs: [retrain_sites]
+    math:
+      - "existing sites: comid = RiverShapeML's COMID"
+      - "new sites: comid = NLDI comid for the gage (null if the gage is not indexed)"
+  # C
+  clean_convert:
+    chapter: C
+    title: Clean and convert
+    script: src/build_targets.py (load_measurements)
+    inputs: [usgs_channel_measurements, hydroswot, retrain_sites, usgs_peaks]
+    outputs: [ahg_input]
+    math:
+      - "Q = 0.0283168 Q_cfs; TW = 0.3048 W_ft; Y = 0.3048 A_ft2 / W_ft; V = 0.3048 Q_cfs / A_ft2"
+      - "all: time >= 2000, not ice; hs: 2000-2015"
+      - "keep 0 < TW < 4,000 m, 0 < Y < 65 m, Q > 0, Q <= 1.1 x the gage's largest annual peak"
+  ahg_fit:
+    chapter: C
+    title: AHGestimation fits
+    script: src/ahg_fit.R
+    inputs: [ahg_input]
+    outputs: [ahg_fits]
+    math:
+      - "mad_filter: drop points > 3 MAD from each log-log relation"
+      - "qva_filter: keep |Q - V TW Y| / Q <= 5% (continuity)"
+      - "ahg_estimate: TW = a Q^b, Y = c Q^f, V = k Q^m by OLS, NLS and NSGA-II; best viable: a c k ~ 1, b + f + m ~ 1"
+      - "hs set: TW = a Q^b only"
+  two_year_flood:
+    chapter: C
+    title: 2-year flood
+    script: src/build_targets.py
+    inputs: [usgs_peaks]
+    outputs: [targets]
+    math:
+      - "Q2 = median(annual peaks) if >= 10 peaks (the median annual flood = 2-year flood on the annual-maximum basis)"
+  read_and_filter:
+    chapter: C
+    title: Read at Q2 and filter
+    script: src/build_targets.py (curve_stats)
+    inputs: [ahg_fits, ahg_input]
+    outputs: [targets]
+    math:
+      - "W_bf = a Q2^b; D_bf = c Q2^f (SI), stored in ft (/ 0.3048)"
+      - "r = ln(v) - ln(curve); trim |r - median r| > 3 x 1.4826 MAD"
+      - "SE = s sqrt(1/n + (ln Q2 - mean ln Q)^2 / sum (ln Q - mean ln Q)^2), s = sqrt(sum r^2 / (n - 2))"
+      - "keep if n >= 5, SE <= 0.2, Q2 / max Q <= 3; drop the site if f < 0"
+  # D
+  match_hydroswot:
+    chapter: D
+    title: Match HYDRoSWOT records to USGS measurements
+    script: src/method_agreement.py (label_hydroswot)
+    inputs: [usgs_channel_measurements_by_site, hydroswot, rsml_width_targets]
+    outputs: [method_agreement_sites, method_agreement_types]
+    math:
+      - "in HYDRoSWOT if same site, |date difference| <= 1 day, |Q difference| <= 3% of Q"
+      - "consistency = median over shared flows of (N curve / H curve - 1); bootstrap 300x for target intervals"
+  noise_floor:
+    chapter: D
+    title: Noise floor vs model error
+    script: src/noise_floor.py
+    inputs: [usgs_channel_measurements_by_site, hydroswot, rsml_width_targets, rsml_depth_targets]
+    outputs: [noise_floor_sites]
+    math:
+      - "d = ln(y_N / y_H) at the site's in-channel and bankfull flows"
+      - "noise floor sigma = 1.4826 MAD(d) / sqrt(2); model sigma = sqrt(1 - R2_paper) sd(ln y)"
+  depth_gap:
+    chapter: D
+    title: Instrument vs location
+    script: src/depth_gap.py
+    inputs: [usgs_channel_measurements_by_site, hydroswot]
+    outputs: [depth_gap_measurements]
+    math:
+      - "residual = depth / pooled site curve - 1; compare groups within site (same deployment; wading vs bridge at shared flows)"
+  # E
+  engineer_join:
+    chapter: E
+    title: Engineer features and join
+    script: src/riverml_pipeline.py (load_features)
+    inputs: [ml_inputs, riverml_models, targets]
+    outputs: [training_table]
+    math:
+      - "fill missing with their saved medians; StreamPower = nwm_max x slope; unit_discharge = bf_ff / TotDASqKM; log_discharge = ln(1 + bf_ff); ... (their engineer_features)"
+      - "join on COMID = FEATUREID; y = ln(1 + 0.3048 tw_all)"
+  cross_validate:
+    chapter: E
+    title: Grouped cross-validation, three variants
+    script: src/retrain_riverml.py
+    inputs: [training_table]
+    outputs: [riverml_runs]
+    math:
+      - "5 folds grouped by COMID x 3 repeats; XGBRegressor with the current model's settings"
+      - "A: existing sites, tw_hs; B1: existing, tw_all; B2: existing + new, tw_all; all scored on the same held-out sites"
+  train_valid_test:
+    chapter: E
+    title: Train / validation / test
+    script: src/train_eval.py
+    inputs: [training_table]
+    outputs: [train_eval]
+    math:
+      - "70 / 15 / 15 split by COMID; RMSE of ln(1 + y) per boosting round on each split"
+  # F
+  run_current_model:
+    chapter: F
+    title: Run the current model on every reach
+    script: src/predict_baseline.py
+    inputs: [ml_inputs, riverml_models]
+    outputs: [product_current]
+    math:
+      - "W = |exp(f(x)) - 1| with their model f, their features x"
+  predict_with_intervals:
+    chapter: F
+    title: Expanded-set retrain on every reach, with intervals
+    script: src/predict_product.py
+    inputs: [training_table, ml_inputs, riverml_runs]
+    outputs: [product_expanded, product_checks]
+    math:
+      - "final fit on all sites with targets (one row per COMID); W = |exp(f(x)) - 1|"
+      - "90% prediction interval = W x exp([P5, P95] of ln(target / prediction)) for the reach's drainage-area class (B2 held-out)"
+      - "coverage checked on unseen sites: bounds from half the sites, tested on the other half"
+  compare_products:
+    chapter: F
+    title: Join and compare
+    script: src/build_product_compare.py
+    inputs: [product_expanded, product_current, hydroshare_2024, bieger_curves, e2nhdplus, ml_inputs]
+    outputs: [product_compare]
+    math:
+      - "join on COMID; 2024 release duplicates collapsed to their median; keep drainage area > 0"
+  notebook_cache:
+    chapter: F
+    title: Notebook cache
+    script: notebooks/explore.py
+    inputs: [usgs_channel_measurements, targets]
+    outputs: [measurement_cache]
+    math:
+      - "measurements since 2000 at retrain sites, Q > 0, W > 0"

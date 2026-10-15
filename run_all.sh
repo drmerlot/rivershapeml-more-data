@@ -1,19 +1,14 @@
 #!/usr/bin/env bash
-# Reproduce every number in the memo (after ./get_data.sh). Prints to stdout; tables go to data/derived/.
+# Reproduce the full analysis (after ./get_data.sh and ./setup_r.sh). Every table this writes is described in
+# docs/data_model.yaml; `python src/data_model.py` checks the two against each other.
 set -euo pipefail
 cd "$(dirname "$0")/src"
-echo "== Silverway (opening example)";            python silverway.py
-echo; echo "== How many new training rows";       python new_rows.py
-echo; echo "== Where targets sit on the flow axis"; python target_flows.py
-echo; echo "== Consistency and target certainty (300 sampled training sites; downloads per-site records)"
-python method_agreement.py 300 1
-echo; echo "== Noise floor vs model error";       python noise_floor.py
-echo; echo "== Depth gap: instrument vs location"; python depth_gap.py
-echo; echo "== Retrain experiment (bankfull width)"
-python site_comids.py && python build_targets.py && python build_features.py && python retrain_experiment.py
-echo; echo "== Retrain on RiverShapeML's own setup, re-predict the product, compare"
-python nwm_q2.py && python predict_baseline.py
-python retrain_riverml.py --target TW_bf && python retrain_riverml.py --target Y_bf
-python predict_product.py && python build_product_compare.py
-echo; echo "== Train / validation / test diagnostics"
-python train_eval.py
+echo "== B. Site selection";              python new_rows.py && python site_comids.py
+echo; echo "== C. Targets (AHGestimation)"; python build_targets.py
+echo; echo "== D. Data checks (300 sampled training sites; downloads per-site records)"
+python method_agreement.py 300 1 && python noise_floor.py && python depth_gap.py
+python silverway.py && python target_flows.py
+echo; echo "== E. Model experiments (current model's features and settings)"
+python retrain_riverml.py --target TW_bf && python retrain_riverml.py --target Y_bf && python train_eval.py
+echo; echo "== F. Product";                    python predict_baseline.py && python predict_product.py && python build_product_compare.py
+echo; echo "== Data model check";              python data_model.py

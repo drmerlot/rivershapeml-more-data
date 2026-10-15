@@ -26,11 +26,6 @@ python src/fetch_usgs_ogc.py channel-measurements
   "https://www.sciencebase.gov/catalog/file/get/63cb311ed34e06fef14f40a3?f=__disk__fa%2Fb9%2F03%2Ffab9035a4ece1500fdb1ead631a9f364d34d1e30"
 python src/fetch_usgs_ogc.py peaks
 
-# NWM v2.1 retrospective hourly flows at ~18k USGS gages, 1979-2020 (USGS ScienceBase 612e264ed34e40dd9c091228, 2.2 GB)
-mkdir -p data/raw/nwm_gages
-[ -f data/raw/nwm_gages/nwmv21_nwis.nc ] || curl -sL -o data/raw/nwm_gages/nwmv21_nwis.nc \
-  "https://www.sciencebase.gov/catalog/file/get/612e264ed34e40dd9c091228?f=__disk__1d%2F9c%2F75%2F1d9c75f22b026a5d676c174ad73b46dfb4a367f7"
-
 # RiverShapeML deployment (NOAA-OWP/predict-riverML): inputs for all ~2.65M reaches (~1.3 GB) and the
 # deployed XGBoost models, reassembled the way their deploy.bash does (cat parts | unxz)
 R=data/raw/predict-riverML
