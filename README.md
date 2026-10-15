@@ -19,6 +19,26 @@ HYDRoSWOT data it trains on. Everything uses public data and runs on a laptop.
 
 Consistency, certainty, noise floor and depth results use a random sample of 300 width-training sites (seed 1).
 
+### Retrain experiment (bankfull width)
+
+A stand-in model (gradient-boosted trees, 27 public features approximating the deployed model's 15) trained three ways
+and scored on the same held-out sites (5-fold CV grouped by reach, 5 repeats):
+**A** existing sites + HYDRoSWOT-only targets; **B1** existing sites + all-measurement targets; **B2** B1 + new sites.
+
+| Held-out sites (typical error; bias) | B1 | B2 |
+|---|---|---|
+| < 10 km² | 88%; +28% | **56%; ~0%** |
+| 10–100 km² | 43% | 39% |
+| New-type sites | 49% | 42% |
+| Existing-type sites | 37.0% | 36.4% |
+
+B1 → B2 (same target definition; only new sites added) is the clean comparison. Scored against HYDRoSWOT-only targets,
+A, B1 and B2 tie on existing sites (37.8 / 38.1 / 37.7%), so "better targets" alone shows no gain on familiar sites.
+Results hold with stricter (SE ≤ 0.1, ≤ 2×) and looser (SE ≤ 0.3, ≤ 5×) target filters: < 10 km² goes 97 → 62% and 83 → 53%.
+Targets use a precision filter (SE of log-width at the 2-yr flood ≤ 0.2, 2-yr flood ≤ 3× max measured flow) instead of
+R² ≥ 0.6, which discards ~3,300 sites whose width is known to a few percent. Scripts: `site_comids.py`, `build_targets.py`,
+`build_features.py`, `retrain_experiment.py`.
+
 ## Reproduce
 
 ```bash

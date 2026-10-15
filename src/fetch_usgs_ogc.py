@@ -1,6 +1,6 @@
 """Page through a national USGS OGC API collection and save selected fields.
 
-Usage: python src/fetch_usgs_ogc.py [channel-measurements|monitoring-locations|time-series-metadata]
+Usage: python src/fetch_usgs_ogc.py [channel-measurements|monitoring-locations|time-series-metadata|peaks]
 Writes data/raw/<collection>/page_NNNN.parquet; resumable via cursor.json.
 """
 import base64
@@ -24,6 +24,8 @@ COLLECTIONS = {
     # daily mean discharge series: which sites have a flow record for flood frequency
     "time-series-metadata": ("ts_meta", "monitoring_location_id,parameter_code,statistic_id,begin,end,primary",
                              "&parameter_code=00060&statistic_id=00003"),
+    # annual peak discharge, for flood frequency (2-year flood)
+    "peaks": ("peaks", "monitoring_location_id,value,water_year,qualifier", "&parameter_code=00060"),
 }
 COLL = sys.argv[1] if len(sys.argv) > 1 else "channel-measurements"
 SUBDIR, PROPS, EXTRA = COLLECTIONS[COLL]
@@ -32,6 +34,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 BASE = f"https://api.waterdata.usgs.gov/ogcapi/v0/collections/{COLL}/items"
 STATE = OUT / "cursor.json"
 PAGE = 20000
+WITH_GEOMETRY = {"monitoring-locations"}  # point sites: keep lon/lat
 
 
 def bump_cursor(url, step):
@@ -45,7 +48,8 @@ def bump_cursor(url, step):
 
 def main():
     st = json.loads(STATE.read_text()) if STATE.exists() else {"page": 0, "url": None}
-    url = st["url"] or f"{BASE}?f=json&limit={PAGE}&skipGeometry=true&properties={PROPS}{EXTRA}"
+    skip_geom = "false" if COLL in WITH_GEOMETRY else "true"
+    url = st["url"] or f"{BASE}?f=json&limit={PAGE}&skipGeometry={skip_geom}&properties={PROPS}{EXTRA}"
     s = requests.Session()
     # Anonymous requests get rate-limited (HTTP 403/429); a free key from
     # https://api.waterdata.usgs.gov/signup/ raises the limit.
@@ -74,6 +78,9 @@ def main():
         skip = 0
         d = r.json()
         df = pd.DataFrame([f["properties"] for f in d["features"]])
+        if COLL in WITH_GEOMETRY:
+            xy = [(f.get("geometry") or {}).get("coordinates") or [None, None] for f in d["features"]]
+            df["lon"], df["lat"] = [c[0] for c in xy], [c[1] for c in xy]
         df.to_parquet(OUT / f"page_{st['page']:04d}.parquet")
         url = next((l["href"] for l in d["links"] if l["rel"] == "next"), None)
         if url:

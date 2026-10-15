@@ -9,3 +9,5 @@ echo; echo "== Consistency and target certainty (300 sampled training sites; dow
 python method_agreement.py 300 1
 echo; echo "== Noise floor vs model error";       python noise_floor.py
 echo; echo "== Depth gap: instrument vs location"; python depth_gap.py
+echo; echo "== Retrain experiment (bankfull width)"
+python site_comids.py && python build_targets.py && python build_features.py && python retrain_experiment.py

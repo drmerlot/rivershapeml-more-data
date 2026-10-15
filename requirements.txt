@@ -5,3 +5,5 @@ pyarrow==26.0.0
 pyogrio==0.13.0
 requests==2.34.2
 shapely==2.2.0
+scikit-learn==1.8.0
+markdown==3.11.1

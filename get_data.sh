@@ -20,3 +20,8 @@ fi
 python src/fetch_usgs_ogc.py monitoring-locations
 python src/fetch_usgs_ogc.py time-series-metadata
 python src/fetch_usgs_ogc.py channel-measurements
+
+# E2NHDPlusV2 / NWM v2.1 network attributes (USGS ScienceBase 63cb311ed34e06fef14f40a3, ~170 MB)
+[ -f data/raw/enhd/enhd_nhdplusatts.parquet ] || curl -sL -o data/raw/enhd/enhd_nhdplusatts.parquet \
+  "https://www.sciencebase.gov/catalog/file/get/63cb311ed34e06fef14f40a3?f=__disk__fa%2Fb9%2F03%2Ffab9035a4ece1500fdb1ead631a9f364d34d1e30"
+python src/fetch_usgs_ogc.py peaks

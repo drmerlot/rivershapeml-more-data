@@ -44,6 +44,7 @@ mean "lower quality."
 
 **3. They make the existing targets better determined.**
 At those same sites there's a median of 13 HYDRoSWOT measurements vs 142 others since 2000. Adding them:
+
 - the in-channel flow falls below every measured flow at 37% of sites with HYDRoSWOT alone, but only 3% with all data;
   the bankfull flow lies above every measured flow at 32% vs 10%;
 - the 90% bootstrap interval on in-channel width shrinks from ±21% to ±8% (median), and bankfull from ±25% to ±19%.
@@ -91,5 +92,5 @@ meaningful share.
 ## Code
 
 Everything above is reproducible from public data (USGS Water Data APIs, the RiverShapeML repo and
-HydroShare outputs, EPA StreamCat): **[repo link]**. I'd enjoy talking through any of this, and I'd be happy to
+HydroShare outputs): **[repo link]**. I'd enjoy talking through any of this, and I'd be happy to
 prototype adding the measurements to your pipeline if it's useful.
