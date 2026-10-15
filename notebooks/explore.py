@@ -42,8 +42,10 @@ def _(mo):
     mo.md("""
     # Adding USGS channel measurements to RiverShapeML
 
-    Explore the targets, the NWM vs gage floods, and the retrain runs. Everything reads
-    `data/derived/` (run `./get_data.sh` and `./run_all.sh` first).
+    An interactive companion to the memo: what happens when RiverShapeML's training data is expanded from
+    HYDRoSWOT's ADCP records to the full USGS channel-measurement record. It covers the model setup, how the training
+    targets are built, the retrain results, a site-by-site explorer, and the re-predicted product for 2.65M reaches.
+    Every number here is reproducible from the repo.
 
     ### Names used here
 
