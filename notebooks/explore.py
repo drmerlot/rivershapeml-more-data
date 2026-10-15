@@ -77,6 +77,7 @@ def _(C1, C2, RAW, alt, json, pd):
     _hs = _hs[_hs.site_no == "08156675"]
     _cm["in HYDRoSWOT"] = _cm.flow_cfs.round(0).isin(_hs.meas_q_va.round(0)) & _cm.measurement_type.eq("MannedMovingBoat")
     _cm["date"] = _cm.time.str[:10]
+    _cm = _cm[["date", "flow_cfs", "width_ft", "measurement_type", "in HYDRoSWOT"]]
     _pts = alt.Chart(_cm).mark_circle(size=70, opacity=0.85, stroke="white", strokeWidth=1).encode(
         x=alt.X("flow_cfs:Q", scale=alt.Scale(type="log"), title="Discharge (cfs)"),
         y=alt.Y("width_ft:Q", scale=alt.Scale(type="log"), title="Width (ft)"),
@@ -116,7 +117,8 @@ def _(C1, C2, alt, ext_slider, mo, pd, se_slider, targets):
     _t["passes R² ≥ 0.6"] = _t.r2_all >= 0.6
     _counts = pd.crosstab(_t.group, _t.passes).rename(columns={True: "pass", False: "fail"})
     _vs_r2 = pd.crosstab(_t["passes R² ≥ 0.6"], _t.passes.rename("passes precision filter"))
-    _chart = alt.Chart(_t.sample(min(4000, len(_t)), random_state=0)).mark_circle(size=18, opacity=0.6).encode(
+    _plot = _t.sample(min(4000, len(_t)), random_state=0)[["site_no", "group", "n_all", "r2_all", "se_all", "ext_all", "passes"]].round(3)
+    _chart = alt.Chart(_plot).mark_circle(size=18, opacity=0.6).encode(
         x=alt.X("ext_all:Q", scale=alt.Scale(type="log"), title="2-yr flood / largest measured flow"),
         y=alt.Y("se_all:Q", scale=alt.Scale(type="log"), title="SE of log-width at 2-yr flood"),
         color=alt.Color("passes:N", scale=alt.Scale(domain=[True, False], range=[C1, C2]), legend=alt.Legend(title="Passes")),
@@ -141,10 +143,11 @@ def _(LABELS, mo):
 
 
 @app.cell
-def _(C1, alt, da_pick, mo, np, pd, sites):
+def _(LABELS, C1, alt, da_pick, mo, np, pd, sites):
     _s = sites.dropna(subset=["q2", "nwm_q2"])
     _s = _s[(_s.nwm_q2 > 0) & _s.da_bin.astype(str).isin(da_pick.value)]
-    _s = _s.assign(ratio=_s.nwm_q2 / _s.q2)
+    _s = _s.assign(ratio=(_s.nwm_q2 / _s.q2).round(3), da_bin=_s.da_bin.astype(str))[
+        ["site_no", "da_bin", "q2", "nwm_q2", "ratio"]].round({"q2": 1, "nwm_q2": 1})
     _lim = [max(1, _s[["q2", "nwm_q2"]].min().min()), _s[["q2", "nwm_q2"]].max().max()]
     _pts = alt.Chart(_s).mark_circle(size=16, opacity=0.5, color=C1).encode(
         x=alt.X("q2:Q", scale=alt.Scale(type="log"), title="Gage 2-yr flood (cfs)"),
@@ -152,7 +155,7 @@ def _(C1, alt, da_pick, mo, np, pd, sites):
         tooltip=["site_no", "da_bin", "q2", "nwm_q2", "ratio"])
     _one = alt.Chart(pd.DataFrame({"x": _lim, "y": _lim})).mark_line(color="#52514e", strokeDash=[4, 3]).encode(x="x", y="y")
     _tbl = _s.groupby("da_bin", observed=True).ratio.agg(
-        sites="size", median="median", p10=lambda r: r.quantile(.1), p90=lambda r: r.quantile(.9)).round(2)
+        sites="size", median="median", p10=lambda r: r.quantile(.1), p90=lambda r: r.quantile(.9)).round(2).reindex([_l for _l in LABELS if _l in set(_s.da_bin)])
     mo.hstack([(_pts + _one).properties(width=420, height=360, title="Dashed line = perfect agreement"),
                mo.vstack([mo.md("**NWM ÷ gage, by drainage area**"), _tbl,
                           mo.md(f"log R² = {np.corrcoef(np.log(_s.q2), np.log(_s.nwm_q2))[0, 1] ** 2:.2f}")])])
@@ -321,7 +324,7 @@ def _(C1, C2, alt, hydroswot, meas, mo, np, pd, preds, site_pick, sites):
     _h = hydroswot[(hydroswot.site_no == _sid) & (hydroswot.stream_wdth_va > 0)]
     _h = pd.DataFrame({"channel_flow": _h.meas_q_va, "channel_width": _h.stream_wdth_va,
                        "time": _h.site_visit_start_dt.astype(str), "source": "HYDRoSWOT"})
-    _all = pd.concat([_m, _h], ignore_index=True)
+    _all = pd.concat([_m, _h], ignore_index=True)[["time", "channel_flow", "channel_width", "measurement_type", "source"]]
     _pts = alt.Chart(_all).mark_circle(size=40, opacity=0.75).encode(
         x=alt.X("channel_flow:Q", scale=alt.Scale(type="log"), title="Discharge (cfs)"),
         y=alt.Y("channel_width:Q", scale=alt.Scale(type="log"), title="Width (ft)"),
@@ -339,6 +342,149 @@ def _(C1, C2, alt, hydroswot, meas, mo, np, pd, preds, site_pick, sites):
         "target width, HYDRoSWOT only (ft)": round(_row.tw_hs, 1) if np.isfinite(_row.tw_hs) else None,
         **{f"{k} error (%)": round(100 * (np.exp(v) - 1), 1) for k, v in _p.items()}}})
     mo.hstack([(_pts + _r + _t).properties(width=440, height=320, title=f"USGS {_sid} (◆ = bankfull target)"), _info])
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    ## 7. The re-predicted product
+
+    Four versions of bankfull width and depth for ~2.6M reaches:
+    **ours** (retrained with the added USGS sites, with 90% intervals) · **deployed** (RiverShapeML's current models,
+    NOAA-OWP/predict-riverML) · **HydroShare 2024** (the published release) · **Bieger et al. (2015)** regional curves
+    applied per reach by USGS (a field-survey-based reference with no machine learning; dashed line).
+
+    Note the definitions differ: the ML products target water-surface width at the 2-year flood at gage sections;
+    Bieger's curves come from field-surveyed bankfull (top of bank) at stable reaches.
+    """)
+    return
+
+
+@app.cell
+def _(DER, np, pd):
+    prod = pd.read_parquet(DER / "product_compare.parquet")
+    _edges = np.logspace(-1, 6.5, 31)
+    prod["da_log_bin"] = pd.cut(prod.totdasqkm, _edges)
+    prod["da_mid"] = prod.da_log_bin.map(lambda iv: float(np.sqrt(iv.left * iv.right)) if pd.notna(iv) else np.nan).astype(float)
+    PRODUCTS = {"deployed": "Deployed (current)", "hydroshare": "HydroShare 2024", "ours": "Ours (+ new sites)"}
+    return PRODUCTS, prod
+
+
+@app.cell
+def _(mo):
+    dim_pick = mo.ui.dropdown({"Bankfull width (m)": "tw_bf_m", "Bankfull depth (m)": "y_bf_m"},
+                              value="Bankfull width (m)", label="Quantity")
+    dim_pick
+    return (dim_pick,)
+
+
+@app.cell
+def _(C1, C2, C3, PRODUCTS, alt, dim_pick, mo, pd, prod):
+    _v = dim_pick.value
+    _g = prod.groupby("da_mid", observed=True)
+    _lines = pd.concat([pd.DataFrame({"da": _g[f"{k}_{_v}"].median().index, "value": _g[f"{k}_{_v}"].median().values,
+                                      "product": name, "reaches": _g.size().values}) for k, name in PRODUCTS.items()])
+    _band = pd.DataFrame({"da": _g[f"ours_{_v}_p05"].median().index, "lo": _g[f"ours_{_v}_p05"].median().values,
+                          "hi": _g[f"ours_{_v}_p95"].median().values})
+    _bieger = pd.DataFrame({"da": _g[f"bieger_{_v}"].median().index, "value": _g[f"bieger_{_v}"].median().values,
+                            "product": "Bieger et al. 2015 (regional curve)"})
+    _x = alt.X("da:Q", scale=alt.Scale(type="log"), title="Drainage area (km²)")
+    _y = alt.Y("value:Q", scale=alt.Scale(type="log"), title=dim_pick.selected_key)
+    _colors = alt.Scale(domain=list(PRODUCTS.values()), range=[C1, C2, C3])
+    _band_ch = alt.Chart(_band).mark_area(opacity=0.18, color=C3).encode(x=_x, y="lo:Q", y2="hi:Q")
+    _line_ch = alt.Chart(_lines).mark_line(strokeWidth=2, point=alt.OverlayMarkDef(size=30)).encode(
+        x=_x, y=_y, color=alt.Color("product:N", scale=_colors, legend=alt.Legend(title=None, orient="top")),
+        tooltip=["product", alt.Tooltip("da:Q", format=",.1f"), alt.Tooltip("value:Q", format=".2f"), "reaches"])
+    _bieger_ch = alt.Chart(_bieger).mark_line(strokeDash=[5, 4], color="#52514e", strokeWidth=2).encode(
+        x=_x, y=_y, tooltip=["product", alt.Tooltip("value:Q", format=".2f")])
+    mo.vstack([
+        (_band_ch + _line_ch + _bieger_ch).properties(
+            width=640, height=380, title="Median by drainage area · shaded = typical 90% interval of ours · dashed = Bieger"),
+    ])
+    return
+
+
+@app.cell
+def _(C1, C2, C3, PRODUCTS, alt, dim_pick, np, pd, prod):
+    _v = dim_pick.value
+    _edges = np.linspace(-1, 3.5, 46)
+    _rows = []
+    for _k, _name in {**PRODUCTS, "bieger": "Bieger et al. 2015 (regional curve)"}.items():
+        _vals = np.log10(prod[f"{_k}_{_v}"].where(lambda s: s > 0).dropna())
+        _h, _ = np.histogram(_vals, _edges)
+        _rows.append(pd.DataFrame({"value": 10 ** ((_edges[:-1] + _edges[1:]) / 2), "share_%": 100 * _h / _h.sum(), "product": _name}))
+    _h = pd.concat(_rows)
+    alt.Chart(_h).mark_line(strokeWidth=2, interpolate="step-after").encode(
+        x=alt.X("value:Q", scale=alt.Scale(type="log"), title=dim_pick.selected_key),
+        y=alt.Y("share_%:Q", title="Share of reaches (%)"),
+        color=alt.Color("product:N", scale=alt.Scale(domain=list(PRODUCTS.values()) + ["Bieger et al. 2015 (regional curve)"],
+                                                     range=[C1, C2, C3, "#52514e"]), legend=alt.Legend(title=None, orient="top")),
+        strokeDash=alt.condition(alt.datum.product == "Bieger et al. 2015 (regional curve)", alt.value([5, 4]), alt.value([1, 0])),
+        tooltip=["product", alt.Tooltip("value:Q", format=".2f"), alt.Tooltip("share_%:Q", format=".2f")],
+    ).properties(width=640, height=260, title="Distribution across all reaches")
+    return
+
+
+@app.cell
+def _(mo):
+    map_pick = mo.ui.dropdown({"Ours vs deployed": ("ours", "deployed"), "Ours vs Bieger": ("ours", "bieger"),
+                               "Deployed vs Bieger": ("deployed", "bieger"), "Deployed vs HydroShare 2024": ("deployed", "hydroshare")},
+                              value="Ours vs deployed", label="Map: ratio")
+    map_pick
+    return (map_pick,)
+
+
+@app.cell
+def _(alt, dim_pick, map_pick, np, prod):
+    _a, _b = map_pick.value
+    _v = dim_pick.value
+    _s = prod.sample(15000, random_state=0)
+    _s = _s.assign(log2_ratio=np.log2(_s[f"{_a}_{_v}"] / _s[f"{_b}_{_v}"]).clip(-2, 2).round(2),
+                   ratio=(_s[f"{_a}_{_v}"] / _s[f"{_b}_{_v}"]).round(2)).dropna(subset=["log2_ratio", "lat"])
+    _s = _s[["comid", "totdasqkm", "lat", "long", "log2_ratio", "ratio"]].astype(float).round(
+        {"lat": 2, "long": 2, "totdasqkm": 1})
+    _s["comid"] = _s.comid.astype(int)
+    alt.Chart(_s).mark_circle(size=6, opacity=0.8).encode(
+        longitude="long:Q", latitude="lat:Q",
+        color=alt.Color("log2_ratio:Q", scale=alt.Scale(domain=[-2, 0, 2], range=["#2a78d6", "#f0efec", "#e34948"]),
+                        legend=alt.Legend(title=f"log₂({_a} ÷ {_b})", orient="right")),
+        tooltip=["comid", alt.Tooltip("totdasqkm:Q", format=",.1f"), "ratio"],
+    ).project("albersUsa").properties(width=720, height=440,
+                                      title=f"{map_pick.selected_key} ({dim_pick.selected_key}), 15k random reaches · blue = first is smaller, red = larger")
+    return
+
+
+@app.cell
+def _(DER, PRODUCTS, dim_pick, mo, pd, prod):
+    _v = dim_pick.value
+    _cols = {name: f"{k}_{_v}" for k, name in {**PRODUCTS, "bieger": "Bieger 2015"}.items()}
+    _by_order = pd.DataFrame({name: prod.groupby("streamorde")[c].median() for name, c in _cols.items()}).astype(float).round(2)
+    _by_order.insert(0, "reaches", prod.groupby("streamorde").size())
+    mo.vstack([mo.md(f"**Median {dim_pick.selected_key} by stream order**"), _by_order.reset_index(),
+               mo.accordion({"Reasonableness checks and interval calibration (product_checks.txt)":
+                             mo.md("```\n" + (DER / "product_checks.txt").read_text() + "\n```")})])
+    return
+
+
+@app.cell
+def _(mo):
+    comid_in = mo.ui.text(value="5781223", label="Look up a reach (COMID)")
+    comid_in
+    return (comid_in,)
+
+
+@app.cell
+def _(comid_in, mo, pd, prod):
+    _r = prod[prod.comid == int(comid_in.value)] if comid_in.value.strip().isdigit() else prod.iloc[0:0]
+    mo.stop(_r.empty, mo.md("_No reach with that COMID._"))
+    _r = _r.iloc[0]
+    mo.vstack([mo.md(f"**{_r.gnis_name or '(unnamed)'}** · COMID {_r.comid} · {_r.totdasqkm:,.1f} km² · order {_r.streamorde:.0f}"),
+               pd.DataFrame({"width (m)": [_r.ours_tw_bf_m, _r.deployed_tw_bf_m, _r.hydroshare_tw_bf_m, _r.bieger_tw_bf_m],
+                             "depth (m)": [_r.ours_y_bf_m, _r.deployed_y_bf_m, _r.hydroshare_y_bf_m, _r.bieger_y_bf_m]},
+                            index=["ours", "deployed", "HydroShare 2024", "Bieger 2015"]).round(2),
+               mo.md(f"Ours, 90% interval: width {_r.ours_tw_bf_m_p05:.1f}–{_r.ours_tw_bf_m_p95:.1f} m · "
+                     f"depth {_r.ours_y_bf_m_p05:.2f}–{_r.ours_y_bf_m_p95:.2f} m")])
     return
 
 

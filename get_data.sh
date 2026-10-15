@@ -49,3 +49,9 @@ for m in TW_bf Y_bf r; do
   f="$R/models/trained_xgboost_model_update_${m}_final.pickle.dat"
   [ -f "$f" ] || cat "$R"/models/trained_xgboost_model_update_${m}_final_split_part_*.xz | xz -d > "$f"
 done
+
+# Bieger et al. (2015) regional bankfull curves applied to every NHDPlus v2.1 reach (USGS, doi:10.5066/F7765D7V, 19 MB)
+mkdir -p data/raw/bieger
+[ -f data/raw/bieger/BANKFULL_CONUS.txt ] || { curl -sL -o data/raw/bieger/BANKFULL_CONUS.zip \
+  "https://www.sciencebase.gov/catalog/file/get/5cf02bdae4b0b51330e22b85?f=__disk__a1%2F89%2F74%2Fa189746226ec5226f3db2d56b0a31d76fa5a3ac1" \
+  && unzip -o -q data/raw/bieger/BANKFULL_CONUS.zip -d data/raw/bieger; }

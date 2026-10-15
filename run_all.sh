@@ -11,3 +11,7 @@ echo; echo "== Noise floor vs model error";       python noise_floor.py
 echo; echo "== Depth gap: instrument vs location"; python depth_gap.py
 echo; echo "== Retrain experiment (bankfull width)"
 python site_comids.py && python build_targets.py && python build_features.py && python retrain_experiment.py
+echo; echo "== Retrain on RiverShapeML's own setup, re-predict the product, compare"
+python nwm_q2.py && python predict_baseline.py
+python retrain_riverml.py --target TW_bf && python retrain_riverml.py --target Y_bf
+python predict_product.py && python build_product_compare.py
