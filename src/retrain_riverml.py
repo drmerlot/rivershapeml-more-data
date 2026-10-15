@@ -1,5 +1,6 @@
 """Retrain experiment on RiverShapeML's own setup: their 30 deployment features (from ml_inputs.parquet,
-engineered exactly as their pipeline does) and their XGBoost hyperparameters, with our targets.
+engineered exactly as their pipeline does) and a regularized, early-stopped version of their XGBoost settings
+(MODEL_PARAMS), with our targets. All variants use the same settings, so only the training data differs.
 
 Variants (all scored on the same held-out sites, folds grouped by COMID):
   A   status quo      : existing sites, HYDRoSWOT-only targets        (width only)
@@ -20,7 +21,7 @@ from sklearn.model_selection import GroupKFold
 from xgboost import XGBRegressor
 
 from metrics import summarize
-from riverml_pipeline import THEIR_PARAMS, load_features
+from riverml_pipeline import MODEL_PARAMS, load_features
 
 DER = Path(__file__).resolve().parents[1] / "data/derived"
 RAW = Path(__file__).resolve().parents[1] / "data/raw"
@@ -32,7 +33,7 @@ pd.set_option("display.width", 200)
 
 
 def model(target, seed):
-    return XGBRegressor(**{**THEIR_PARAMS[target], "random_state": seed}, tree_method="hist", n_jobs=-1)
+    return XGBRegressor(**{**MODEL_PARAMS[target], "random_state": seed}, tree_method="hist", n_jobs=-1)
 
 
 def main(target="TW_bf", n_seeds=3, name=None):
@@ -55,7 +56,7 @@ def main(target="TW_bf", n_seeds=3, name=None):
         if c:
             d[c + "_m"] = d[c] * FT
     (run_dir / "config.json").write_text(json.dumps(
-        {"target": target, "features": feats, "model": "XGBRegressor", "params": THEIR_PARAMS[target],
+        {"target": target, "features": feats, "model": "XGBRegressor", "params": MODEL_PARAMS[target],
          "seeds": list(range(n_seeds)), "n_folds": N_FOLDS, "targets": "retrain_targets.csv",
          "variants": {k: [v[0], sorted(v[1])] for k, v in variants.items()}}, indent=2))
     print(f"{name}: {len(d)} sites with features; evaluable {d[y_all].notna().sum()}", flush=True)
@@ -91,7 +92,7 @@ def main(target="TW_bf", n_seeds=3, name=None):
     def table(by):
         return summarize(p, by).set_index(by + ["variant"] if by else ["variant"])
 
-    log(f"run: {name}  (their features + their XGBoost settings; target {target})")
+    log(f"run: {name}  (their features + MODEL_PARAMS; target {target})")
     log("training rows per variant (mean):", p.groupby("variant").n_train.mean().round(0).to_dict())
     log("\n== All held-out sites"); log(table([]).to_string())
     log("\n== By site group"); log(table(["group"]).to_string())

@@ -211,8 +211,9 @@ def _(mo):
     | Location | projected x / y, distance and angle from the CONUS center |
     | Prior estimate | `suggested_width_m` (a width estimate included in the deployment inputs) |
 
-    **f (model): XGBoost regression with RiverShapeML's deployed settings**, unchanged: 9,765 trees (width) or
-    11,000 (depth), learning rate 0.01, depth 9, 80% row and 70% column sampling. Squared error on log(1 + y).
+    **f (model): XGBoost regression**, squared error on log(1 + y): learning rate 0.01, tree depth 6, at least 5
+    samples per leaf, 80% row and 70% column sampling, 2,478 trees (width) / 2,416 (depth). These are RiverShapeML's
+    deployed settings, regularized, with the number of trees set by early stopping on the validation split.
 
     **Data setup.** Sites = RiverShapeML's existing training gages plus new USGS gages that pass the same rules.
     Split **by reach** into 70% train / 15% validation / 15% test, so no reach appears in two sets. The model is fit
@@ -250,7 +251,7 @@ def _(mo):
     | 7 | **The precision filter keeps trustworthy targets.** | Conclusions stable across three filter settings. |
     | 8 | **RiverShapeML's deployment inputs are correct and identical** for gaged and ungaged reaches. | Reproduced the deployed outputs exactly; input accuracy not checked. |
     | 9 | **Each gage is linked to the right reach** (USGS NLDI). | Not checked site by site; unlinked gages dropped. |
-    | 10 | **RiverShapeML's model settings suit the larger training set** (not retuned). | Learning curves below: converges, no validation overfitting. |
+    | 10 | **The model settings suit the data**: RiverShapeML's settings regularized (depth 6, ≥ 5 per leaf) and early-stopped. | Chosen on the validation split; same held-out accuracy as the deployed settings with ~4× fewer trees and much less memorization. |
     | 11 | **Splitting by reach prevents leakage.** | By design; adjacent reaches could still be correlated. |
     | 12 | **Held-out gaged sites represent the reaches we predict.** | **No: the main limitation.** Gages favor perennial, larger streams; 44% of reaches are < 5 km² with almost no training sites. |
     | 13 | **Ungaged reaches carry the same uncertainty as gaged reaches of similar size**, so prediction intervals transfer. | ~90% coverage on held-out gaged sites (site split; ~88% for < 10 km²); unverifiable for ungaged reaches. |
@@ -276,9 +277,9 @@ def _(C1, C2, C3, DER, alt, json, mo, pd):
             x="round:Q", tooltip=[alt.Tooltip("round:Q", title="best validation round")])
         _charts.append((_lines + _rule).properties(width=380, height=260, title=f"{_name}: learning curves"))
     mo.vstack([alt.hconcat(*_charts),
-               mo.md("Dashed line = round with the lowest validation error. Validation and test flatten after "
-                     "~500–1,000 rounds and stay flat: no overfitting on held-out data. Train error keeps falling "
-                     "toward zero: the model memorizes its training sites, so training accuracy is never quoted.")])
+               mo.md("Dashed line = round with the lowest validation error. Validation and test fall together and level off; "
+                     "the number of trees was set by early stopping on validation, so the model stops where held-out error "
+                     "stops improving. Training error stays well above zero (no memorization of training sites).")])
     return
 
 

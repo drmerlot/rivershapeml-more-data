@@ -1,7 +1,7 @@
 """Re-predict the product with the added training sites, with uncertainty, reasonableness checks, and a
 comparison to the deployed RiverShapeML model and the 2024 HydroShare release.
 
-1. Final models: their 30 features + their XGBoost settings, trained on ALL sites with targets (variant B2),
+1. Final models: their 30 features + MODEL_PARAMS (regularized, early-stopped settings), trained on ALL sites with targets (variant B2),
    for bankfull width (TW_bf) and depth (Y_bf); predict every reach in ml_inputs.parquet.
 2. Uncertainty: 90% prediction intervals from held-out errors by drainage-area class (split-conformal, by class):
    interval = prediction x [P5, P95] of held-out ratio target/prediction in that class, from the

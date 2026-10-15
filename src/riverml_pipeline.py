@@ -20,7 +20,14 @@ from pyproj import Transformer
 ROOT = Path(__file__).resolve().parents[1]
 RML = ROOT / "data/raw/predict-riverML"
 ID = "FEATUREID"
-# hyperparameters of their deployed "update" models (read from the pickled XGBRegressor)
+# settings used for all models trained here: regularized and early-stopped versions of the deployed settings,
+# chosen by src/tune_regularization.py (validation split; same held-out accuracy, ~4x fewer trees, less memorization)
+MODEL_PARAMS = {"TW_bf": dict(n_estimators=2478, learning_rate=0.01, max_depth=6, min_child_weight=5, reg_lambda=1,
+                              subsample=0.8, colsample_bytree=0.7, random_state=42),
+                "Y_bf": dict(n_estimators=2416, learning_rate=0.01, max_depth=6, min_child_weight=5, reg_lambda=1,
+                             subsample=0.8, colsample_bytree=0.7, random_state=42)}
+# hyperparameters of their deployed "update" models (read from the pickled XGBRegressor); used only for reference
+# and as the starting point of the regularization sweep
 THEIR_PARAMS = {"TW_bf": dict(n_estimators=9765, learning_rate=0.01, max_depth=9, subsample=0.8,
                               colsample_bytree=0.7, random_state=42),
                 "Y_bf": dict(n_estimators=11000, learning_rate=0.01, max_depth=9, subsample=0.8,

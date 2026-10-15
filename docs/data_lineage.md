@@ -681,7 +681,7 @@ flowchart TD
   riverml_fill_medians["RiverShapeML fill-in medians<br/>478 rows<br/><i>from A</i>"]:::external
   riverml_runs["Held-out predictions, current model's setup (width and depth)<br/>104,250 rows"]:::table
   targets["Targets (bankfull width and depth per site)<br/>8,904 rows<br/><i>from C</i>"]:::external
-  train_eval["Train / validation / test diagnostics (width and depth)<br/>34,691 rows"]:::table
+  train_eval["Train / validation / test diagnostics (width and depth)<br/>18,820 rows"]:::table
   training_table["Training table (targets joined to the current model's features)<br/>not stored"]:::table
   tuning["Regularization sweep with early stopping (width and depth)<br/>68 rows"]:::table
   op_engineer_join(["Engineer features and join"]):::op
@@ -737,7 +737,7 @@ flowchart TD
 #### Train / validation / test diagnostics (width and depth) (`train_eval`)
 
 - **Path:** `data/derived/training/*/*`
-- **Rows:** 34,691
+- **Rows:** 18,820
 - **Grain:** curves = one boosting round; predictions = one site; metrics = one split
 - **Key:** target, split
 - **Source / provenance:**
@@ -777,7 +777,7 @@ flowchart TD
 - **In:** `training_table`
 - **Out:** `riverml_runs`
 - **Math:**
-  - 5 folds grouped by COMID x 3 repeats; XGBRegressor with the current model's settings
+  - 5 folds grouped by COMID x 3 repeats; XGBRegressor with MODEL_PARAMS (regularized, early-stopped deployed settings)
   - A: existing sites, tw_hs; B1: existing, tw_all; B2: existing + new, tw_all; all scored on the same held-out sites
 
 #### Train / validation / test (`train_valid_test`)

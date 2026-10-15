@@ -653,7 +653,7 @@ operations:
     inputs: [training_table]
     outputs: [riverml_runs]
     math:
-      - "5 folds grouped by COMID x 3 repeats; XGBRegressor with the current model's settings"
+      - "5 folds grouped by COMID x 3 repeats; XGBRegressor with MODEL_PARAMS (regularized, early-stopped deployed settings)"
       - "A: existing sites, tw_hs; B1: existing, tw_all; B2: existing + new, tw_all; all scored on the same held-out sites"
   train_valid_test:
     chapter: E

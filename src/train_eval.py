@@ -1,5 +1,5 @@
 """Train / validation / test diagnostics for the final method (B2: all sites with targets, RiverShapeML's
-30 deployment features and XGBoost settings), for bankfull width and depth.
+30 deployment features, MODEL_PARAMS settings), for bankfull width and depth.
 
 Split: 70 / 15 / 15 by reach (COMID), so no reach appears in two sets. The model is fit on train only, with
 the full fixed number of trees from RiverShapeML's settings (no early stopping); train, validation and test

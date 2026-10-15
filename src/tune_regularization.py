@@ -18,7 +18,8 @@ import pandas as pd
 from xgboost import XGBRegressor
 
 from metrics import error_metrics
-from retrain_riverml import FT, model as deployed_model
+from retrain_riverml import FT
+from riverml_pipeline import THEIR_PARAMS
 from riverml_pipeline import load_features
 from train_eval import TARGETS, split_reaches
 
@@ -63,7 +64,7 @@ def main(seed=0):
         tuned = XGBRegressor(**{**BASE, "early_stopping_rounds": None, "n_estimators": int(best["n_trees"])},
                              max_depth=int(best["max_depth"]), min_child_weight=best["min_child_weight"],
                              reg_lambda=best["reg_lambda"]).fit(*S["train"])
-        deployed = deployed_model(target, seed).fit(*S["train"])
+        deployed = XGBRegressor(**{**THEIR_PARAMS[target], "random_state": seed}, tree_method="hist", n_jobs=-1).fit(*S["train"])
         comp = {}
         for name, m in [("deployed settings", deployed), ("tuned (early stopping)", tuned)]:
             r = {"valid_rmse": rmse(m, *S["valid"]), "test_rmse": rmse(m, *S["test"]), "train_rmse": rmse(m, *S["train"]),
