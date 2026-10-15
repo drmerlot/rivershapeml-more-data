@@ -11,7 +11,7 @@ flowchart TD
   B["B. Site selection<br/>2 tables"]:::table
   C["C. Targets (y)<br/>3 tables"]:::table
   D["D. Data checks<br/>4 tables"]:::table
-  E["E. Model experiments<br/>3 tables"]:::table
+  E["E. Model experiments<br/>4 tables"]:::table
   F["F. Product<br/>5 tables"]:::table
   A --> B
   A --> C
@@ -683,6 +683,7 @@ flowchart TD
   targets["Targets (bankfull width and depth per site)<br/>8,904 rows<br/><i>from C</i>"]:::external
   train_eval["Train / validation / test diagnostics (width and depth)<br/>34,691 rows"]:::table
   training_table["Training table (targets joined to the current model's features)<br/>not stored"]:::table
+  tuning["Regularization sweep with early stopping (width and depth)<br/>68 rows"]:::table
   op_engineer_join(["Engineer features and join"]):::op
   ml_inputs --> op_engineer_join
   riverml_feature_lists --> op_engineer_join
@@ -696,6 +697,9 @@ flowchart TD
   op_train_valid_test(["Train / validation / test"]):::op
   training_table --> op_train_valid_test
   op_train_valid_test --> train_eval
+  op_tune(["Regularization sweep"]):::op
+  training_table --> op_tune
+  op_tune --> tuning
   classDef table fill:#F1EFE8,stroke:#5F5E5A,color:#2C2C2A
   classDef external fill:#ffffff,stroke:#888780,stroke-dasharray:4 3,color:#444441
   classDef op fill:#E1F5EE,stroke:#0F6E56,color:#085041
@@ -743,6 +747,19 @@ flowchart TD
   - `predictions`: observed_m, predicted_m, split per site
   - `metrics`: error measures per split (src/metrics.py)
 
+#### Regularization sweep with early stopping (width and depth) (`tuning`)
+
+- **Path:** `data/derived/tuning/*/*.csv`
+- **Rows:** 68
+- **Grain:** grid = one setting; comparison = one configuration (deployed vs tuned)
+- **Key:** target, max_depth, min_child_weight, reg_lambda
+- **Source / provenance:**
+  - **script:** src/tune_regularization.py
+- **Columns:**
+  - `n_trees`: count; trees at the best validation round (early stopping)
+  - `train_rmse / valid_rmse / test_rmse`: -; RMSE of ln(1 + y)
+  - `(comparison)`: test-set error measures for the deployed settings and the tuned setting
+
 ### Operations
 
 #### Engineer features and join (`engineer_join`)
@@ -770,6 +787,17 @@ flowchart TD
 - **Out:** `train_eval`
 - **Math:**
   - 70 / 15 / 15 split by COMID; RMSE of ln(1 + y) per boosting round on each split
+
+#### Regularization sweep (`tune`)
+
+- **Script:** `src/tune_regularization.py`
+- **In:** `training_table`
+- **Out:** `tuning`
+- **Math:**
+  - same 70 / 15 / 15 reach split as train_valid_test; learning rate 0.01, subsample 0.8, colsample 0.7
+  - grid: max_depth {3, 4, 6, 9} x min_child_weight {1, 5, 20, 50} x reg_lambda {1, 10}
+  - early stopping: stop after 300 rounds without validation improvement (max 10,000 trees)
+  - select the lowest validation RMSE; evaluate once on test next to the deployed settings
 
 ## F. Product
 
