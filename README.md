@@ -4,6 +4,16 @@ Code behind a short note ([memo](memo/memo_v1.md)) on how many more USGS channel
 to [RiverShapeML](https://github.com/lynker-spatial/RiverShapeML), and whether they're compatible with the
 HYDRoSWOT data it trains on. Everything uses public data and runs on a laptop.
 
+## Built on RiverShapeML
+
+This work stands on RiverShapeML by Arash Modaresi Rad and colleagues (Modaresi Rad et al., 2024,
+*JGR: Machine Learning and Computation*). It was only possible because the model's deployment pipeline,
+[NOAA-OWP/predict-riverML](https://github.com/NOAA-OWP/predict-riverML), is public: its inputs for every reach,
+feature engineering and trained models let me reproduce the deployed bankfull width and depth for all 2.65M
+reaches exactly (matching the published output statistics), and then run every experiment here on the model's own
+features and settings. The training data, targets and code in
+[lynker-spatial/RiverShapeML](https://github.com/lynker-spatial/RiverShapeML) made the rest possible.
+
 ## Findings
 
 | Question | Result | Script |
