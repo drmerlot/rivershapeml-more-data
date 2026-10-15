@@ -117,9 +117,12 @@ def _(mo):
 
     **One row = one USGS gage site** (its NHDPlus reach). Two separate models: bankfull **width** and bankfull **depth**.
 
-    **y (target), built from field measurements.** For each site: fit a straight line to log(width) vs log(flow)
-    through all USGS channel measurements since 2000 (mean depth = cross-section area ÷ width, fitted the same
-    way), then read it at the site's **2-year flood**. The 2-year flood is the flow with a 50% chance of being exceeded
+    **y (target), built from field measurements.** For each site: take all USGS channel measurements since 2000
+    (flow, width, mean depth = cross-section area ÷ width, velocity = flow ÷ area), apply RiverShapeML's sanity rules
+    (width < 4 km, depth < 65 m, flow within the gage's recorded range), and fit width, depth and velocity against
+    flow **jointly with AHGestimation** (Johnson et al., NOAA OWP; the package RiverShapeML used), so the three power
+    laws conserve mass. Sites where depth falls as flow rises are dropped. Then read the curves at the site's
+    **2-year flood**. The 2-year flood is the flow with a 50% chance of being exceeded
     in any year; on the annual-maximum basis that is, by definition, the **median of the annual peak flows**, so we
     estimate it as the median of the gage's USGS annual peaks (≥ 10 years). Converted to meters and
     modeled as log(1 + y). A site is kept only if that value is precise (standard error ≤ ~±20%) and the 2-year flood
@@ -170,7 +173,7 @@ def _(mo):
     |:--|:--|:--|
     | 1 | **"Bankfull" = width/depth at the 2-year flood** (RiverShapeML's definition, kept for comparability). | Definition. Bieger's field-surveyed curves run ~1.5–2× lower. |
     | 2 | **2-year flood estimated as the median of a gage's annual peaks** (≥ 10 years). On the annual-maximum basis the 2-year flood *is* the median annual flood (as in the UK Flood Estimation Handbook's QMED); the median is a simple estimate of it, where RiverShapeML fits flood distributions. | Within ~3% (median) of RiverShapeML's fitted values at ~5,000 shared sites; peaks span the full record, so changes in flood regime are averaged in. |
-    | 3 | **One power law per site** relates width (depth) to flow, readable up to 3× the largest measured flow. | Results hold with 2× and 5× limits. |
+    | 3 | **One power law per site** for each of width, depth and velocity vs flow (fitted jointly with AHGestimation), readable up to 3× the largest measured flow. | Earlier plain-fit results held with 2× and 5× limits; AHG and plain-fit targets compared below. |
     | 4 | **Measurements near a gage represent its reach.** | Spots within ~200 ft differ (wading ~33% shallower than bridge), treated as real variability. |
     | 5 | **All measurement methods are equally valid.** | Yes: same deployment, ADCP vs other meters agree within 0–2%. |
     | 6 | **Channels are stable since 2000.** | Not tested. |

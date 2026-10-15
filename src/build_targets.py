@@ -1,25 +1,35 @@
-"""Bankfull-width targets for the retrain experiment, built the same way for every site.
+"""Bankfull width and depth targets for every site, built the same way for all sites.
 
 For each site in retrain_sites.csv (with a COMID):
-  q2      : 2-year flood = median of USGS annual peak discharges (>= 10 peaks)
-  tw_all  : width at q2 from a log-log fit to ALL USGS width measurements since 2000
-  tw_hs   : same, using only the site's HYDRoSWOT records (2000-2015), i.e. the status-quo data
-  td_all  : bankfull mean depth (area / width) at q2, all USGS measurements (no HYDRoSWOT-only version:
-            RiverShapeML's HYDRoSWOT copy has no usable mean depth)
-Each fit needs >= 5 measurements (after trimming gross outliers), a standard error of log-width at q2
-<= 0.2, and q2 <= 3x the largest measured flow; otherwise the target is NaN. This replaces the paper's
-R² >= 0.6 filter: R² is low for confined channels whose width barely changes with flow, even when
-their width is precisely known. ext_* = q2 / largest measured flow.
+  q2      : 2-year flood = median of USGS annual peak discharges (>= 10 peaks). On the annual-maximum
+            basis the 2-year flood is the median annual flood; the sample median estimates it.
+  tw_all  : bankfull width at q2 from all USGS channel measurements since 2000
+  td_all  : bankfull mean depth (area / width) at q2, same measurements
+  tw_hs   : bankfull width at q2 from the site's HYDRoSWOT records only (2000-2015): the status-quo data
+            (no depth version: RiverShapeML's HYDRoSWOT copy has no cross-section area)
 
-Simplifications vs RiverShapeML: median annual peak instead of a fitted GEV/GP/LP3 distribution, and
-plain least squares instead of AHGestimation.
+Fitting (--fit ahg, default): AHGestimation (Johnson et al., NOAA OWP), the package RiverShapeML used, via
+src/ahg_fit.R: mad_filter(), qva_filter() (continuity), then ahg_estimate(), which fits width, depth and
+velocity jointly so they conserve mass (V = Q / area). --fit ols: the earlier independent log-log fits.
 
-Usage: python src/build_targets.py [max_se] [max_ext] [out_csv]   (defaults 0.2, 3.0, data/derived/retrain_targets.csv)
-Output: data/derived/retrain_targets.csv
+RiverShapeML's sanity rules, applied before fitting: positive values; width < 4 km; depth < 65 m;
+measured flow no larger than 1.1x the gage's largest recorded annual peak. Sites whose fitted depth
+decreases with flow (depth exponent < 0) are dropped, as in the paper.
+
+Site selection (both fits): >= 5 measurements after filtering, standard error of the log target at q2
+<= 0.2 (~ +/-22%) from the residuals around the fitted curve, and q2 <= 3x the largest measured flow.
+This replaces the paper's R² >= 0.6 rule (R² is recorded for comparison as r2_*).
+
+Units: measurements are converted to SI for fitting; target columns are written in feet (tw_*, td_*)
+and q2 in ft3/s, as downstream scripts expect.
+
+Usage: python src/build_targets.py [--fit ahg|ols] [--max-se 0.2] [--max-ext 3] [--out CSV] [--reuse-fits]
+Output: data/derived/retrain_targets.csv (ahg) or retrain_targets_ols.csv (ols), unless --out is given
 """
+import argparse
+import os
+import subprocess
 from pathlib import Path
-
-import sys
 
 import numpy as np
 import pandas as pd
@@ -27,8 +37,9 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 RAW, DER = ROOT / "data/raw", ROOT / "data/derived"
 MIN_MEAS, MIN_PEAKS = 5, 10
-MAX_SE = 0.2   # max standard error of log-width at q2 (~ +/-20%)
+MAX_SE = 0.2   # max standard error of the log target at q2
 MAX_EXT = 3.0  # max q2 / largest measured flow
+FT, CFS = 0.3048, 0.0283168  # m per ft, m3/s per ft3/s
 
 
 def pages(subdir, columns=None):
@@ -36,60 +47,98 @@ def pages(subdir, columns=None):
                      ignore_index=True)
 
 
-def fit_at(q, w, q_eval):
-    """log-log least squares after one pass of outlier trimming (|resid| > 3 robust sd).
-    Returns width at q_eval (NaN unless precise enough), standard error of log-width at q_eval,
-    r2, n used, and q_eval / max measured q."""
-    lq, lw = np.log(q), np.log(w)
-    if len(lq) >= MIN_MEAS and np.ptp(lq) > 0:
-        b, a = np.polyfit(lq, lw, 1)
-        res = lw - (a + b * lq)
-        mad = 1.4826 * np.median(np.abs(res - np.median(res)))
-        keep = np.abs(res - np.median(res)) <= 3 * mad if mad > 0 else np.ones(len(lq), bool)
-        lq, lw = lq[keep], lw[keep]
+def curve_stats(q, v, coef, exp, q_eval):
+    """Target at q_eval from the curve v = coef * q^exp, plus its precision. Residuals around the curve are
+    trimmed at 3 robust SD; SE of the log target at q_eval uses the linear-regression formula in log space.
+    Returns (target or NaN if not precise enough, se, r2, n, q_eval / max q)."""
+    lq, lv = np.log(q), np.log(v)
+    res = lv - (np.log(coef) + exp * lq)
+    mad = 1.4826 * np.median(np.abs(res - np.median(res)))
+    keep = np.abs(res - np.median(res)) <= 3 * mad if mad > 0 else np.ones(len(lq), bool)
+    lq, lv, res = lq[keep], lv[keep], res[keep]
     n = len(lq)
     if n < MIN_MEAS or np.ptp(lq) == 0:
         return np.nan, np.nan, np.nan, n, np.nan
-    b, a = np.polyfit(lq, lw, 1)
-    res = lw - (a + b * lq)
     s = np.sqrt(np.sum(res ** 2) / (n - 2))
     x0 = np.log(q_eval)
     se = s * np.sqrt(1 / n + (x0 - lq.mean()) ** 2 / np.sum((lq - lq.mean()) ** 2))
-    sst = np.sum((lw - lw.mean()) ** 2)
+    sst = np.sum((lv - lv.mean()) ** 2)
     r2 = 1 - np.sum(res ** 2) / sst if sst > 0 else np.nan
     ext = q_eval / np.exp(lq.max())
     ok = (se <= MAX_SE) and (ext <= MAX_EXT)
-    return (np.exp(a + b * x0) if ok else np.nan), se, r2, n, ext
+    return (coef * q_eval ** exp if ok else np.nan), se, r2, n, ext
 
 
-def main(max_se=None, max_ext=None, out=None):
-    global MAX_SE, MAX_EXT
-    MAX_SE, MAX_EXT = float(max_se or MAX_SE), float(max_ext or MAX_EXT)
-    sites = pd.read_csv(DER / "retrain_sites.csv", dtype={"site_no": str}).dropna(subset=["comid"])
-    sites = sites.drop_duplicates("site_no")
+def ols_curve(q, v):
+    """Independent log-log least squares after one pass of 3-MAD trimming (the --fit ols method)."""
+    lq, lv = np.log(q), np.log(v)
+    if len(lq) < MIN_MEAS or np.ptp(lq) == 0:
+        return np.nan, np.nan
+    b, a = np.polyfit(lq, lv, 1)
+    res = lv - (a + b * lq)
+    mad = 1.4826 * np.median(np.abs(res - np.median(res)))
+    keep = np.abs(res - np.median(res)) <= 3 * mad if mad > 0 else np.ones(len(lq), bool)
+    if keep.sum() < MIN_MEAS or np.ptp(lq[keep]) == 0:
+        return np.nan, np.nan
+    b, a = np.polyfit(lq[keep], lv[keep], 1)
+    return np.exp(a), b
+
+
+def load_measurements(sites, max_peak_cms):
+    """All USGS measurements since 2000 and HYDRoSWOT records 2000-2015, in SI, with the sanity rules."""
     ids = set("USGS-" + sites.site_no)
-
-    pk = pages("peaks")
-    pk = pk[pk.monitoring_location_id.isin(ids)]
-    pk["value"] = pd.to_numeric(pk.value, errors="coerce")
-    pk = pk[pk.value > 0]
-    peaks = pk.groupby(pk.monitoring_location_id.str[5:]).value.agg(q2="median", n_peaks="size")
-    peaks.loc[peaks.n_peaks < MIN_PEAKS, "q2"] = np.nan
-
     cm = pages("channel_meas", ["monitoring_location_id", "time", "channel_flow", "channel_width", "channel_area",
-                               "measurement_type"])
+                                "measurement_type"])
     cm = cm[cm.monitoring_location_id.isin(ids)]
     for c in ["channel_flow", "channel_width", "channel_area"]:
         cm[c] = pd.to_numeric(cm[c], errors="coerce")
-    cm["depth"] = cm.channel_area / cm.channel_width  # mean depth (ft)
-    cm = cm[(cm.channel_flow > 0) & (cm.channel_width > 0) & (cm.measurement_type != "Ice") & (cm.time.str[:4] >= "2000")]
-    cm["site_no"] = cm.monitoring_location_id.str[5:]
-    by_site = dict(tuple(cm.groupby("site_no")))
+    cm = cm[(cm.measurement_type != "Ice") & (cm.time.str[:4] >= "2000")]
+    cm = pd.DataFrame({"site_no": cm.monitoring_location_id.str[5:], "set": "all",
+                       "Q": cm.channel_flow * CFS, "TW": cm.channel_width * FT,
+                       "Y": cm.channel_area / cm.channel_width * FT,
+                       "V": cm.channel_flow / cm.channel_area * FT})  # (ft3/s)/(ft2) = ft/s -> m/s
 
     hs = pd.read_parquet(RAW / "repo/RiverShapeML/data/adcp.parquet")
-    hs = hs[(hs.meas_q_va > 0) & (hs.stream_wdth_va > 0) & hs.site_no.isin(sites.site_no)]
-    hs = hs[pd.to_datetime(hs.site_visit_start_dt).between("2000-01-01", "2015-12-31")]
-    hs_by_site = dict(tuple(hs.groupby("site_no")))
+    hs = hs[hs.site_no.isin(sites.site_no) & pd.to_datetime(hs.site_visit_start_dt).between("2000-01-01", "2015-12-31")]
+    hs = pd.DataFrame({"site_no": hs.site_no, "set": "hs", "Q": hs.meas_q_va * CFS, "TW": hs.stream_wdth_va * FT,
+                       "Y": np.nan, "V": np.nan})
+
+    d = pd.concat([cm, hs], ignore_index=True)
+    n0 = len(d)
+    ok = (d.Q > 0) & (d.TW > 0) & (d.TW < 4000)
+    ok &= d.Y.isna() | ((d.Y > 0) & (d.Y < 65) & (d.V > 0))
+    ok &= d.Q <= 1.1 * d.site_no.map(max_peak_cms)
+    d = d[ok.fillna(False)]
+    print(f"measurements: {n0:,} -> {len(d):,} after sanity rules "
+          f"(all: {(d.set == 'all').sum():,}, HYDRoSWOT: {(d.set == 'hs').sum():,})", flush=True)
+    return d
+
+
+def main(fit="ahg", max_se=MAX_SE, max_ext=MAX_EXT, out=None, reuse_fits=False):
+    global MAX_SE, MAX_EXT
+    MAX_SE, MAX_EXT = float(max_se), float(max_ext)
+    out = Path(out) if out else DER / ("retrain_targets.csv" if fit == "ahg" else "retrain_targets_ols.csv")
+    sites = pd.read_csv(DER / "retrain_sites.csv", dtype={"site_no": str}).dropna(subset=["comid"])
+    sites = sites.drop_duplicates("site_no")
+
+    pk = pages("peaks")
+    pk = pk[pk.monitoring_location_id.isin(set("USGS-" + sites.site_no))]
+    pk["value"] = pd.to_numeric(pk.value, errors="coerce")
+    pk = pk[pk.value > 0]
+    peaks = pk.groupby(pk.monitoring_location_id.str[5:]).value.agg(q2="median", n_peaks="size", max_peak="max")
+    peaks.loc[peaks.n_peaks < MIN_PEAKS, "q2"] = np.nan
+
+    d = load_measurements(sites, peaks.max_peak * CFS)
+    d = d[d.site_no.isin(peaks.index[peaks.q2.notna()])]
+
+    if fit == "ahg":
+        fits_path = DER / "ahg_fits.parquet"
+        if not (reuse_fits and fits_path.exists()):
+            d.to_parquet(DER / "ahg_input.parquet", index=False)
+            env = {**os.environ, "R_LIBS_USER": str(ROOT / "r_lib")}
+            subprocess.run(["Rscript", str(ROOT / "src/ahg_fit.R")], check=True, env=env)
+        fits = pd.read_parquet(fits_path).set_index(["site_no", "set"])
+    by = dict(tuple(d.groupby(["site_no", "set"])))
 
     rows = []
     for s in sites.itertuples():
@@ -97,26 +146,51 @@ def main(max_se=None, max_ext=None, out=None):
         row = {"site_no": s.site_no, "group": s.group, "comid": int(s.comid), "q2": q2,
                "n_peaks": peaks.n_peaks.get(s.site_no, 0)}
         if np.isfinite(q2):
-            d = by_site.get(s.site_no)
-            if d is not None:
-                row["tw_all"], row["se_all"], row["r2_all"], row["n_all"], row["ext_all"] = fit_at(d.channel_flow.values, d.channel_width.values, q2)
-                dd = d[d.depth > 0]
-                row["td_all"], row["se_d_all"], row["r2_d_all"], row["n_d_all"], row["ext_d_all"] = fit_at(dd.channel_flow.values, dd.depth.values, q2)
-            h = hs_by_site.get(s.site_no)
-            if h is not None:
-                row["tw_hs"], row["se_hs"], row["r2_hs"], row["n_hs"], row["ext_hs"] = fit_at(h.meas_q_va.values, h.stream_wdth_va.values, q2)
+            q2_si = q2 * CFS
+            for st, specs in [("all", [("TW", "tw_all", ("se_all", "r2_all", "n_all", "ext_all")),
+                                       ("Y", "td_all", ("se_d_all", "r2_d_all", "n_d_all", "ext_d_all"))]),
+                              ("hs", [("TW", "tw_hs", ("se_hs", "r2_hs", "n_hs", "ext_hs"))])]:
+                g = by.get((s.site_no, st))
+                if g is None:
+                    continue
+                if fit == "ahg":
+                    if (s.site_no, st) not in fits.index or pd.notna(fits.loc[(s.site_no, st), "error"]):
+                        continue
+                    f = fits.loc[(s.site_no, st)]
+                    coefs = {"TW": (f.TW_coef, f.TW_exp), "Y": (f.Y_coef, f.Y_exp)}
+                    row[f"viable_{st}"] = f.viable
+                else:
+                    coefs = {v: ols_curve(g.Q.values, g[v].values) for v in ["TW", "Y"] if g[v].notna().any()}
+                if st == "all" and "Y" in coefs and coefs["Y"][1] < 0:
+                    row["dropped_inverse_depth"] = True  # depth decreasing with flow: drop the site
+                    continue
+                for v, col, (c_se, c_r2, c_n, c_ext) in specs:
+                    c, e = coefs.get(v, (np.nan, np.nan))
+                    if not (np.isfinite(c) and np.isfinite(e) and c > 0):
+                        continue
+                    gv = g[g[v] > 0]
+                    target, row[c_se], row[c_r2], row[c_n], row[c_ext] = curve_stats(gv.Q.values, gv[v].values, c, e, q2_si)
+                    row[col] = target / FT  # m -> ft
+                    row[f"{col}_exp"] = e
         rows.append(row)
     t = pd.DataFrame(rows)
-    t.to_csv(out or DER / "retrain_targets.csv", index=False)
-    print(f"filter: se <= {MAX_SE}, q2/maxQ <= {MAX_EXT}")
+    t.to_csv(out, index=False)
 
-    print(f"sites with COMID: {len(t)}  | with q2: {t.q2.notna().sum()}")
+    print(f"fit: {fit} | filter: se <= {MAX_SE}, q2/maxQ <= {MAX_EXT} | wrote {out.name}")
+    print(f"sites with COMID: {len(t)}  | with q2: {t.q2.notna().sum()} | dropped (depth falls with flow): "
+          f"{int(t.get('dropped_inverse_depth', pd.Series(dtype=bool)).fillna(False).sum())}")
     print(t.groupby("group").agg(tw_all=("tw_all", "count"), tw_hs=("tw_hs", "count"), td_all=("td_all", "count")))
     both = t.dropna(subset=["tw_all", "tw_hs"])
-    print(f"existing sites with both targets: {len(both)}; tw_all/tw_hs median {np.median(both.tw_all / both.tw_hs):.3f}, "
-          f"IQR [{(both.tw_all / both.tw_hs).quantile(.25):.2f}, {(both.tw_all / both.tw_hs).quantile(.75):.2f}]")
+    print(f"existing sites with both width targets: {len(both)}; tw_all/tw_hs median {np.median(both.tw_all / both.tw_hs):.3f}")
     print("extrapolation q2/maxQ, median: all", round(t.ext_all.median(), 2), "| hs", round(t.ext_hs.median(), 2))
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:4])
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--fit", choices=["ahg", "ols"], default="ahg")
+    ap.add_argument("--max-se", type=float, default=MAX_SE)
+    ap.add_argument("--max-ext", type=float, default=MAX_EXT)
+    ap.add_argument("--out")
+    ap.add_argument("--reuse-fits", action="store_true", help="use existing data/derived/ahg_fits.parquet")
+    a = ap.parse_args()
+    main(a.fit, a.max_se, a.max_ext, a.out, a.reuse_fits)

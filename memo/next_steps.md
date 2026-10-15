@@ -11,6 +11,13 @@ during the analysis; keep, merge or cut when we draft.
    to verify), or snapping gage coordinates to the nearest reach and accepting the match only if drainage areas
    agree within ~25%. Could add several hundred sites.
 
+## Planned (end of project)
+
+2. **In-channel targets and models.** Repeat the full process (targets, retrain, re-predict, compare) for
+   in-channel width and depth. The in-channel flow (RiverShapeML's 100%-annual-exceedance flood, a median ~6% of the
+   2-year flood) sits where wading measurements are densest, so the added data should help most there. The current
+   deployed model is bankfull-only, but OWP flood mapping uses in-channel values.
+
 ## Candidates
 
 - **Sites without a long daily flow record** (~7,075 more candidates): usable if NWM-based flood frequencies are
@@ -22,8 +29,9 @@ during the analysis; keep, merge or cut when we draft.
   to within a few percent (confined channels whose width barely changes with flow).
 - **Lighter model settings:** validation error flattens after ~500–1,000 trees vs 9,765 / 11,000 deployed; similar
   accuracy for far less compute, and less memorization of training sites.
-- **In-channel (1-year flood) targets** from the same measurements; the in-channel flow sits where wading data is
-  densest.
+- **Match the flood record to the measurement period.** Annual peaks use each gage's full record (e.g. 1975-2026)
+  while measurements start in 2000; where flood regimes changed (urbanization, dams), restricting peaks to the same
+  period would keep the curve and the flow it's read at from the same era.
 - **Reach-specific prediction intervals** (e.g., quantile models) instead of one interval per size class.
 - **Measurement location as variability:** use the spread between measurement spots at a gage as an estimate of
   within-reach variability, or a per-site target uncertainty for weighting.

@@ -69,6 +69,7 @@ R² ≥ 0.6, which discards ~3,300 sites whose width is known to a few percent. 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+./setup_r.sh             # R packages for AHGestimation (needs R >= 4.2, e.g. `brew install --cask r`)
 echo "YOUR_KEY" > .env   # free key: https://api.waterdata.usgs.gov/signup/ (needed for the ~1 hr USGS download)
 ./get_data.sh            # RiverShapeML repo @29c1209, HydroShare outputs, USGS Water Data APIs
 ./run_all.sh
@@ -80,8 +81,12 @@ echo "YOUR_KEY" > .env   # free key: https://api.waterdata.usgs.gov/signup/ (nee
   day, discharge within 3%). 97% of HYDRoSWOT records since 2000 at the sampled sites match.
 - **New-site counts:** CONUS sites not in the width targets with ≥ 5 width measurements since 2000 and ≥ 10 years of daily
   discharge. The R² > 0.6 filter is applied at the existing pass rate (75%), since new sites weren't fitted.
-- **Curves** are plain log-log least-squares fits, not the AHGestimation ensemble used for the published targets.
-  Comparisons are relative.
+- **Curves** are fitted with AHGestimation (Johnson et al., NOAA OWP; R package, commit pinned in `r_ahg_commit.txt`),
+  the package RiverShapeML used: width, depth and velocity are fitted jointly against flow so they conserve mass
+  (velocity = flow / area), after its MAD and continuity filters and RiverShapeML's sanity rules (width < 4 km,
+  depth < 65 m, measured flow within the gage's recorded range); sites whose depth falls as flow rises are dropped.
+  Compared with independent log-log fits, targets agree at the median (width 1.00, depth 1.03; middle half within
+  about ±5-14%). `python src/build_targets.py --fit ols` reproduces the plain fits.
 - **Model error** is approximated from the paper's held-out log R² (σ ≈ √(1−R²)·sd(ln y)), not computed per site.
   Published values at gaged reaches equal the training targets, so they can't be used to check the model.
 - **The noise floor** reflects variation within a few hundred feet of each gage, not along a whole reach.
