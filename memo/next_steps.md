@@ -27,8 +27,10 @@ during the analysis; keep, merge or cut when we draft.
   curve below the smallest training size.
 - **A precision-based target filter** instead of R² ≥ 0.6, which drops ~3,300 sites whose bankfull width is known
   to within a few percent (confined channels whose width barely changes with flow).
-- **Lighter model settings:** validation error flattens after ~500–1,000 trees vs 9,765 / 11,000 deployed; similar
-  accuracy for far less compute, and less memorization of training sites.
+- **Early stopping and regularization:** validation error is within 0.3% of its best after ~900 trees (width and
+  depth) vs 9,765 / 11,000 deployed, so early stopping gives the same accuracy at ~10x less compute. Training error
+  near zero shows heavy memorization (depth-9 trees on ~5,000 sites); regularization sweep results in
+  data/derived/tuning/ (pending).
 - **Match the flood record to the measurement period.** Annual peaks use each gage's full record (e.g. 1975-2026)
   while measurements start in 2000; where flood regimes changed (urbanization, dams), restricting peaks to the same
   period would keep the curve and the flow it's read at from the same era.

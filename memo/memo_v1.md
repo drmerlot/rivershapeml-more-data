@@ -1,4 +1,4 @@
-# More measurements for RiverShapeML? Notes from a walk on Shoal Creek
+# Adding USGS channel measurements to RiverShapeML
 
 *Andrew Sommerlot · October 2026 · draft v1.1*
 

@@ -477,6 +477,18 @@ tables:
       predictions: "observed_m, predicted_m, split per site"
       metrics: "error measures per split (src/metrics.py)"
 
+  tuning:
+    chapter: E
+    title: Regularization sweep with early stopping (width and depth)
+    path: data/derived/tuning/*/*.csv
+    grain: grid = one setting; comparison = one configuration (deployed vs tuned)
+    key: [target, max_depth, min_child_weight, reg_lambda]
+    source: {script: src/tune_regularization.py}
+    columns:
+      n_trees: "count; trees at the best validation round (early stopping)"
+      train_rmse / valid_rmse / test_rmse: "-; RMSE of ln(1 + y)"
+      (comparison): "test-set error measures for the deployed settings and the tuned setting"
+
   # ---------------------------------------------------------------- F. product
   product_current:
     chapter: F
@@ -651,6 +663,17 @@ operations:
     outputs: [train_eval]
     math:
       - "70 / 15 / 15 split by COMID; RMSE of ln(1 + y) per boosting round on each split"
+  tune:
+    chapter: E
+    title: Regularization sweep
+    script: src/tune_regularization.py
+    inputs: [training_table]
+    outputs: [tuning]
+    math:
+      - "same 70 / 15 / 15 reach split as train_valid_test; learning rate 0.01, subsample 0.8, colsample 0.7"
+      - "grid: max_depth {3, 4, 6, 9} x min_child_weight {1, 5, 20, 50} x reg_lambda {1, 10}"
+      - "early stopping: stop after 300 rounds without validation improvement (max 10,000 trees)"
+      - "select the lowest validation RMSE; evaluate once on test next to the deployed settings"
   # F
   run_current_model:
     chapter: F

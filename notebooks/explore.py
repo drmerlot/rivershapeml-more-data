@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.25.1"
-app = marimo.App(width="medium", app_title="RiverShapeML data explorer")
+app = marimo.App(width="medium", app_title="Adding USGS channel measurements to RiverShapeML")
 
 
 @app.cell
@@ -40,7 +40,7 @@ def _():
 @app.cell
 def _(mo):
     mo.md("""
-    # RiverShapeML: more training data?
+    # Adding USGS channel measurements to RiverShapeML
 
     Explore the targets, the NWM vs gage floods, and the retrain runs. Everything reads
     `data/derived/` (run `./get_data.sh` and `./run_all.sh` first).

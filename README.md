@@ -1,4 +1,4 @@
-# More training data for RiverShapeML?
+# Adding USGS channel measurements to RiverShapeML
 
 Code behind a short note ([memo](memo/memo_v1.md)) on how many more USGS channel measurements are available
 to [RiverShapeML](https://github.com/lynker-spatial/RiverShapeML), and whether they're compatible with the
