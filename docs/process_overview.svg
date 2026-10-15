@@ -63,9 +63,9 @@
 
 <g class="src"><rect x="290" y="572" width="260" height="96" rx="8"/>
 <text class="h" x="420" y="592">Deliverables</text>
-<text class="s" x="420" y="614">Memo, repo, explorer,</text>
-<text class="s" x="420" y="632">ML-derived channel width</text>
-<text class="s" x="420" y="650">and depth, expanded-set retrain</text></g>
+<text class="s" x="420" y="614">ML-derived channel width</text>
+<text class="s" x="420" y="632">and depth, expanded-set retrain;</text>
+<text class="s" x="420" y="650">explorer, repo, memo</text></g>
 
 <line class="arr" x1="280" y1="134" x2="306" y2="134" marker-end="url(#arrow)"/>
 <path class="arr" d="M280 200 L294 200 L294 164 L306 164" marker-end="url(#arrow)"/>
