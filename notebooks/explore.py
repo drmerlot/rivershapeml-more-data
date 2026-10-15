@@ -53,8 +53,16 @@ def _(mo):
     | **Current model** | RiverShapeML as deployed by NOAA OWP ([NOAA-OWP/predict-riverML](https://github.com/NOAA-OWP/predict-riverML)), run on its published inputs |
     | **2024 release** | RiverShapeML outputs published on HydroShare in 2024 (an earlier model generation; the version history between it and the current model isn't public) |
     | **Expanded-set retrain** | the current model's features and settings, retrained on the expanded training set |
+    | **ML-derived channel width and depth, expanded-set retrain** | the expanded-set retrain's predictions: bankfull width and depth with 90% prediction intervals for ~2.65M NHDPlus reaches. "ML-derived channel width and depth" is the RiverShapeML product's published name (HydroShare); the current model and the 2024 release are versions of it |
     | **Bieger regional curve** | Bieger et al. (2015) field-based regional equations for bankfull width and depth, applied per reach by USGS |
     """)
+    return
+
+
+@app.cell
+def _(DER, mo):
+    mo.vstack([mo.md("### Process overview"),
+               mo.Html((DER.parents[1] / "docs/process_overview.svg").read_text())])
     return
 
 
@@ -169,7 +177,7 @@ def _(mo):
     | 10 | **RiverShapeML's model settings suit the larger training set** (not retuned). | Learning curves below: converges, no validation overfitting. |
     | 11 | **Splitting by reach prevents leakage.** | By design; adjacent reaches could still be correlated. |
     | 12 | **Held-out gaged sites represent the reaches we predict.** | **No: the main limitation.** Gages favor perennial, larger streams; 44% of reaches are < 5 km² with almost no training sites. |
-    | 13 | **Uncertainty intervals transfer** from gaged to ungaged reaches of similar size. | 90% coverage on gaged sites; unverifiable for ungaged ones. |
+    | 13 | **Ungaged reaches carry the same uncertainty as gaged reaches of similar size**, so prediction intervals transfer. | ~90% coverage on held-out gaged sites (site split; ~88% for < 10 km²); unverifiable for ungaged reaches. |
     """)
     return
 
@@ -480,7 +488,7 @@ def _(mo):
     ## 8. The re-predicted product
 
     Four versions of bankfull width and depth for ~2.6M reaches:
-    **ours** (retrained with the added USGS sites, with 90% intervals) · **deployed** (RiverShapeML's current models,
+    **ours** (the expanded-set retrain, with 90% prediction intervals) · **deployed** (RiverShapeML's current models,
     NOAA-OWP/predict-riverML) · **HydroShare 2024** (the published release) · **Bieger et al. (2015)** regional curves
     applied per reach by USGS (a field-survey-based reference with no machine learning; dashed line).
 
@@ -529,7 +537,7 @@ def _(C1, C2, C3, PRODUCTS, alt, dim_pick, mo, pd, prod):
         x=_x, y=_y, tooltip=["product", alt.Tooltip("value:Q", format=".2f")])
     mo.vstack([
         (_band_ch + _line_ch + _bieger_ch).properties(
-            width=640, height=380, title="Median by drainage area · shaded = typical 90% interval of ours · dashed = Bieger"),
+            width=640, height=380, title="Median by drainage area · shaded = typical 90% prediction interval of ours · dashed = Bieger"),
     ])
     return
 
@@ -591,7 +599,7 @@ def _(DER, PRODUCTS, dim_pick, mo, pd, prod):
     _by_order = pd.DataFrame({name: prod.groupby("streamorde")[c].median() for name, c in _cols.items()}).astype(float).round(2)
     _by_order.insert(0, "reaches", prod.groupby("streamorde").size())
     mo.vstack([mo.md(f"**Median {dim_pick.selected_key} by stream order**"), _by_order.reset_index(),
-               mo.accordion({"Reasonableness checks and interval calibration (product_checks.txt)":
+               mo.accordion({"Reasonableness checks and prediction-interval calibration (product_checks.txt)":
                              mo.md("```\n" + (DER / "product_checks.txt").read_text() + "\n```")})])
     return
 
@@ -612,7 +620,7 @@ def _(comid_in, mo, pd, prod):
                pd.DataFrame({"width (m)": [_r.ours_tw_bf_m, _r.deployed_tw_bf_m, _r.hydroshare_tw_bf_m, _r.bieger_tw_bf_m],
                              "depth (m)": [_r.ours_y_bf_m, _r.deployed_y_bf_m, _r.hydroshare_y_bf_m, _r.bieger_y_bf_m]},
                             index=["ours", "deployed", "HydroShare 2024", "Bieger 2015"]).round(2),
-               mo.md(f"Ours, 90% interval: width {_r.ours_tw_bf_m_p05:.1f}–{_r.ours_tw_bf_m_p95:.1f} m · "
+               mo.md(f"Ours, 90% prediction interval: width {_r.ours_tw_bf_m_p05:.1f}–{_r.ours_tw_bf_m_p95:.1f} m · "
                      f"depth {_r.ours_y_bf_m_p05:.2f}–{_r.ours_y_bf_m_p95:.2f} m")])
     return
 

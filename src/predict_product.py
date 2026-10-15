@@ -3,9 +3,10 @@ comparison to the deployed RiverShapeML model and the 2024 HydroShare release.
 
 1. Final models: their 30 features + their XGBoost settings, trained on ALL sites with targets (variant B2),
    for bankfull width (TW_bf) and depth (Y_bf); predict every reach in ml_inputs.parquet.
-2. Uncertainty: 90% intervals from held-out errors by drainage-area class (split-conformal, "Mondrian" by class):
+2. Uncertainty: 90% prediction intervals from held-out errors by drainage-area class (split-conformal, by class):
    interval = prediction x [P5, P95] of held-out ratio target/prediction in that class, from the
-   retrain_riverml B2 runs. Coverage is checked per seed.
+   retrain_riverml B2 runs. Coverage is checked on unseen sites (bounds set on half the sites, tested on the other).
+   Assumes ungaged reaches carry the same uncertainty as gaged reaches of similar size.
 3. Reasonableness checks on ours and the baseline: ranges, width/depth ratio, downstream consistency on
    the same river (levelpath), width ~ drainage-area scaling, extremes.
 4. Comparison: quantiles overall / by drainage area / by stream order; reach-level ratios.
@@ -34,13 +35,17 @@ def conformal_bounds(target):
     r = -p.log_err  # ln(target / prediction)
     b = r.groupby(p.da_bin.astype(str)).quantile([0.05, 0.95]).unstack()
     b.columns = ["lo", "hi"]
-    # coverage check: bounds from seeds != s applied to seed s
+    # coverage check on unseen sites: set the bounds on a random half of the sites, test on the other half
+    # (and vice versa), over 20 random splits
     cov = []
-    for s in sorted(p.seed.unique()):
-        cal, ev = p[p.seed != s], p[p.seed == s]
-        bb = (-cal.log_err).groupby(cal.da_bin.astype(str)).quantile([0.05, 0.95]).unstack()
-        lo, hi = ev.da_bin.astype(str).map(bb[0.05]), ev.da_bin.astype(str).map(bb[0.95])
-        cov.append(((-ev.log_err >= lo) & (-ev.log_err <= hi)).groupby(ev.da_bin.astype(str)).mean())
+    sites = p.site_no.unique()
+    for rep in range(20):
+        half = set(np.random.default_rng(rep).choice(sites, len(sites) // 2, replace=False))
+        for cal_mask in (p.site_no.isin(half), ~p.site_no.isin(half)):
+            cal, ev = p[cal_mask], p[~cal_mask]
+            bb = (-cal.log_err).groupby(cal.da_bin.astype(str)).quantile([0.05, 0.95]).unstack()
+            lo, hi = ev.da_bin.astype(str).map(bb[0.05]), ev.da_bin.astype(str).map(bb[0.95])
+            cov.append(((-ev.log_err >= lo) & (-ev.log_err <= hi)).groupby(ev.da_bin.astype(str)).mean())
     b["coverage_check"] = pd.concat(cov, axis=1).mean(axis=1)
     return b
 
@@ -81,7 +86,7 @@ def main():
 
     for target, col in [("TW_bf", "tw_bf_m"), ("Y_bf", "y_bf_m")]:
         b = conformal_bounds(target)
-        log(f"\n== 90% interval factors by drainage area, {target} (ln-ratio P5/P95 -> multiplicative)")
+        log(f"\n== 90% prediction-interval factors by drainage area, {target} (ln-ratio P5/P95 -> multiplicative)")
         log(pd.DataFrame({"lower_x": np.exp(b.lo), "upper_x": np.exp(b.hi), "coverage_check": b.coverage_check}).round(3).to_string())
         out[col + "_p05"] = out[col] * np.exp(out.da_bin.map(b.lo))
         out[col + "_p95"] = out[col] * np.exp(out.da_bin.map(b.hi))

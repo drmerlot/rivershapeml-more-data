@@ -14,6 +14,21 @@ reaches exactly (matching the published output statistics), and then run every e
 features and settings. The training data, targets and code in
 [lynker-spatial/RiverShapeML](https://github.com/lynker-spatial/RiverShapeML) made the rest possible.
 
+## Names used here
+
+| Name | Definition |
+|:--|:--|
+| **Expanded training set** | RiverShapeML's training gages plus additional USGS gages, with targets built from all USGS channel measurements since 2000 (every measurement method, not only ADCP) |
+| **Current model** | RiverShapeML as deployed by NOAA OWP ([NOAA-OWP/predict-riverML](https://github.com/NOAA-OWP/predict-riverML)), run on its published inputs |
+| **2024 release** | RiverShapeML outputs published on HydroShare in 2024 (an earlier model generation; the version history between it and the current model isn't public) |
+| **Expanded-set retrain** | the current model's features and settings, retrained on the expanded training set |
+| **ML-derived channel width and depth, expanded-set retrain** | the expanded-set retrain's predictions: bankfull width and depth with 90% prediction intervals for ~2.65M NHDPlus reaches ("ML-derived channel width and depth" is the RiverShapeML product's published name) |
+| **Bieger regional curve** | Bieger et al. (2015) field-based regional equations for bankfull width and depth, applied per reach by USGS |
+
+## Process overview
+
+![Process overview](docs/process_overview.svg)
+
 ## Findings
 
 | Question | Result | Script |
