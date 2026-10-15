@@ -43,7 +43,7 @@
 
 <g class="step"><rect x="310" y="120" width="220" height="56" rx="8"/>
 <text class="h" x="420" y="138">Expanded training set</text>
-<text class="s" x="420" y="158">y for ~7,200 gage sites</text></g>
+<text class="s" x="420" y="158">y for ~7,000 gage sites</text></g>
 
 <g class="step"><rect x="310" y="210" width="220" height="56" rx="8"/>
 <text class="h" x="420" y="228">Data checks</text>
