@@ -44,6 +44,16 @@ def _(mo):
 
     Explore the targets, the NWM vs gage floods, and the retrain runs. Everything reads
     `data/derived/` (run `./get_data.sh` and `./run_all.sh` first).
+
+    ### Names used here
+
+    | Name | Definition |
+    |:--|:--|
+    | **Expanded training set** | RiverShapeML's training gages plus additional USGS gages, with targets built from all USGS channel measurements since 2000 (every measurement method, not only ADCP) |
+    | **Current model** | RiverShapeML as deployed by NOAA OWP ([NOAA-OWP/predict-riverML](https://github.com/NOAA-OWP/predict-riverML)), run on its published inputs |
+    | **2024 release** | RiverShapeML outputs published on HydroShare in 2024 (an earlier model generation; the version history between it and the current model isn't public) |
+    | **Expanded-set retrain** | the current model's features and settings, retrained on the expanded training set |
+    | **Bieger regional curve** | Bieger et al. (2015) field-based regional equations for bankfull width and depth, applied per reach by USGS |
     """)
     return
 
