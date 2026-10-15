@@ -1,0 +1,8 @@
+.env
+.venv/
+data/
+archive/
+memo/email_draft.md
+__pycache__/
+.claude/
+.DS_Store
