@@ -62,7 +62,8 @@ def _(mo):
 @app.cell
 def _(DER, mo):
     mo.vstack([mo.md("### Process overview"),
-               mo.Html((DER.parents[1] / "docs/process_overview.svg").read_text())])
+               mo.Html((DER.parents[1] / "docs/process_overview.svg").read_text()
+                       .replace('width="680" height="708"', 'width="100%" style="max-width:680px;height:auto"'))])
     return
 
 
