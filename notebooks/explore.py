@@ -93,8 +93,127 @@ def _(C1, C2, RAW, alt, json, pd):
 
 @app.cell
 def _(mo):
+    mo.md(r"""
+    ## 2. The model: f(x) = y
+
+    **One row = one USGS gage site** (its NHDPlus reach). Two separate models: bankfull **width** and bankfull **depth**.
+
+    **y (target), built from field measurements.** For each site: fit a straight line to log(width) vs log(flow)
+    through all USGS channel measurements since 2000 (mean depth = cross-section area ÷ width, fitted the same
+    way), then read it at the site's **2-year flood** (median of its USGS annual peak flows). Converted to meters and
+    modeled as log(1 + y). A site is kept only if that value is precise (standard error ≤ ~±20%) and the 2-year flood
+    is within 3× the largest measured flow.
+
+    **x (features): RiverShapeML's own 30 deployment inputs**, engineered exactly as in
+    NOAA-OWP/predict-riverML, available for every reach:
+
+    | Group | Features |
+    |:--|:--|
+    | Flow and stream power | NWM 2-year flood (log), flow per unit drainage area, stream power (NWM max flow × slope), subsurface runoff and its ratio to flood flow |
+    | Size and network | drainage area (log), arbolate sum, stream order, flowline type (3 indicators) |
+    | Slope and form | slope, slope², sinuosity, sinuosity ÷ slope, elevation drop, Manning's roughness |
+    | Watershed, soils, geology | baseflow index, depth to water table, depth to bedrock, rock resistance and erodibility indices |
+    | Vegetation | leaf area index, vegetation and bank stability indices |
+    | Location | projected x / y, distance and angle from the CONUS center |
+    | Prior estimate | `suggested_width_m` (a width estimate included in the deployment inputs) |
+
+    **f (model): XGBoost regression with RiverShapeML's deployed settings**, unchanged: 9,765 trees (width) or
+    11,000 (depth), learning rate 0.01, depth 9, 80% row and 70% column sampling. Squared error on log(1 + y).
+
+    **Data setup.** Sites = RiverShapeML's existing training gages plus new USGS gages that pass the same rules.
+    Split **by reach** into 70% train / 15% validation / 15% test, so no reach appears in two sets. The model is fit
+    on train only; validation and test are never seen during fitting.
+    """)
+    return
+
+
+@app.cell
+def _(DER, json, mo, pd):
+    _rows = []
+    for _t, _name in [("TW_bf", "width"), ("Y_bf", "depth")]:
+        _s = json.loads((DER / f"training/{_t}/setup.json").read_text())
+        for _split in ["train", "valid", "test"]:
+            _g = _s["groups_by_split"].get(_split, {})
+            _rows.append({"model": _name, "split": _split, "sites": _s["sites"][_split],
+                          "existing sites": _g.get("existing", 0), "new sites": _g.get("new", 0)})
+    mo.vstack([mo.md("**Sites per split**"), pd.DataFrame(_rows)])
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""
+    ### Major assumptions
+
+    | # | Assumption | Checked? |
+    |:--|:--|:--|
+    | 1 | **"Bankfull" = width/depth at the 2-year flood** (RiverShapeML's definition, kept for comparability). | Definition. Bieger's field-surveyed curves run ~1.5–2× lower. |
+    | 2 | **2-year flood = median of a gage's annual peaks** (≥ 10 years). | Standard; not compared with fitted distributions. |
+    | 3 | **One power law per site** relates width (depth) to flow, readable up to 3× the largest measured flow. | Results hold with 2× and 5× limits. |
+    | 4 | **Measurements near a gage represent its reach.** | Spots within ~200 ft differ (wading ~33% shallower than bridge), treated as real variability. |
+    | 5 | **All measurement methods are equally valid.** | Yes: same deployment, ADCP vs other meters agree within 0–2%. |
+    | 6 | **Channels are stable since 2000.** | Not tested. |
+    | 7 | **The precision filter keeps trustworthy targets.** | Conclusions stable across three filter settings. |
+    | 8 | **RiverShapeML's deployment inputs are correct and identical** for gaged and ungaged reaches. | Reproduced the deployed outputs exactly; input accuracy not checked. |
+    | 9 | **Each gage is linked to the right reach** (USGS NLDI). | Not checked site by site; unlinked gages dropped. |
+    | 10 | **RiverShapeML's model settings suit the larger training set** (not retuned). | Learning curves below: converges, no validation overfitting. |
+    | 11 | **Splitting by reach prevents leakage.** | By design; adjacent reaches could still be correlated. |
+    | 12 | **Held-out gaged sites represent the reaches we predict.** | **No: the main limitation.** Gages favor perennial, larger streams; 44% of reaches are < 5 km² with almost no training sites. |
+    | 13 | **Uncertainty intervals transfer** from gaged to ungaged reaches of similar size. | 90% coverage on gaged sites; unverifiable for ungaged ones. |
+    """)
+    return
+
+
+@app.cell
+def _(C1, C2, C3, DER, alt, json, mo, pd):
+    _charts = []
+    for _t, _name in [("TW_bf", "Bankfull width"), ("Y_bf", "Bankfull depth")]:
+        _c = pd.read_parquet(DER / f"training/{_t}/curves.parquet")
+        _c = _c[(_c["round"] % 10 == 0) | (_c["round"] < 50)]
+        _long = _c.melt("round", var_name="set", value_name="rmse")
+        _best = json.loads((DER / f"training/{_t}/setup.json").read_text())["best_valid_round"]
+        _lines = alt.Chart(_long).mark_line(strokeWidth=2).encode(
+            x=alt.X("round:Q", scale=alt.Scale(type="symlog"), title="Boosting round (trees added)"),
+            y=alt.Y("rmse:Q", title="RMSE of log(1 + y)"),
+            color=alt.Color("set:N", scale=alt.Scale(domain=["train", "valid", "test"], range=[C1, C2, C3]),
+                            legend=alt.Legend(title=None, orient="top")),
+            tooltip=["set", "round", alt.Tooltip("rmse:Q", format=".4f")])
+        _rule = alt.Chart(pd.DataFrame({"round": [_best]})).mark_rule(strokeDash=[4, 3], color="#52514e").encode(
+            x="round:Q", tooltip=[alt.Tooltip("round:Q", title="best validation round")])
+        _charts.append((_lines + _rule).properties(width=380, height=260, title=f"{_name}: learning curves"))
+    mo.vstack([alt.hconcat(*_charts),
+               mo.md("Dashed line = round with the lowest validation error. Validation and test flatten after "
+                     "~500–1,000 rounds and stay flat: no overfitting on held-out data. Train error keeps falling "
+                     "toward zero: the model memorizes its training sites, so training accuracy is never quoted.")])
+    return
+
+
+@app.cell
+def _(C1, C2, DER, alt, mo, pd):
+    _charts, _tables = [], []
+    for _t, _name in [("TW_bf", "width"), ("Y_bf", "depth")]:
+        _p = pd.read_parquet(DER / f"training/{_t}/predictions.parquet")
+        _test = _p[_p.split == "test"][["site_no", "group", "observed_m", "predicted_m"]].round(3)
+        _lo, _hi = _test[["observed_m", "predicted_m"]].min().min(), _test[["observed_m", "predicted_m"]].max().max()
+        _pts = alt.Chart(_test).mark_circle(size=22, opacity=0.6).encode(
+            x=alt.X("observed_m:Q", scale=alt.Scale(type="log"), title=f"Target {_name} (m)"),
+            y=alt.Y("predicted_m:Q", scale=alt.Scale(type="log"), title=f"Predicted {_name} (m)"),
+            color=alt.Color("group:N", scale=alt.Scale(domain=["existing", "new"], range=[C1, C2]),
+                            legend=alt.Legend(title="Site", orient="top")),
+            tooltip=["site_no", "group", "observed_m", "predicted_m"])
+        _one = alt.Chart(pd.DataFrame({"v": [_lo, _hi]})).mark_line(color="#52514e", strokeDash=[4, 3]).encode(x="v:Q", y="v:Q")
+        _charts.append((_pts + _one).properties(width=380, height=320, title=f"Test set: {_name} (dashed = perfect)"))
+        _m = pd.read_csv(DER / f"training/{_t}/metrics.csv", index_col=0).round(3)
+        _m.insert(0, "model", _name)
+        _tables.append(_m.reset_index(names="split"))
+    mo.vstack([alt.hconcat(*_charts), mo.md("**Error measures by split** (see `src/metrics.py`)"), pd.concat(_tables, ignore_index=True)])
+    return
+
+
+@app.cell
+def _(mo):
     mo.md("""
-    ## 2. Target filter explorer
+    ## 3. Target filter explorer
 
     A site gets a bankfull-width target if the fitted width at its 2-year flood is precise enough
     (standard error of log-width) and the 2-year flood isn't too far past the largest measured flow.
@@ -130,7 +249,7 @@ def _(C1, C2, alt, ext_slider, mo, pd, se_slider, targets):
 @app.cell
 def _(mo):
     mo.md("""
-    ## 3. NWM vs gage 2-year flood
+    ## 4. NWM vs gage 2-year flood
     """)
     return
 
@@ -165,7 +284,7 @@ def _(LABELS, C1, alt, da_pick, mo, np, pd, sites):
 @app.cell
 def _(mo):
     mo.md("""
-    ## 4. Training runs
+    ## 5. Training runs
 
     Each run trains **A** (existing sites, HYDRoSWOT-only targets), **B1** (existing sites, all-measurement
     targets) and **B2** (B1 + new sites), scored on the same held-out sites. **B1 vs B2 is the clean
@@ -251,7 +370,7 @@ def _(LABELS, METRICS, VARIANT_COLORS, alt, mo, preds, summarize, variant_pick):
 @app.cell
 def _(mo):
     mo.md("""
-    ## 5. Compare runs
+    ## 6. Compare runs
     """)
     return
 
@@ -281,7 +400,7 @@ def _(DER, load_preds, metric_pick, pd, run_names, summarize):
 @app.cell
 def _(mo):
     mo.md("""
-    ## 6. Site explorer
+    ## 7. Site explorer
     """)
     return
 
@@ -348,7 +467,7 @@ def _(C1, C2, alt, hydroswot, meas, mo, np, pd, preds, site_pick, sites):
 @app.cell
 def _(mo):
     mo.md("""
-    ## 7. The re-predicted product
+    ## 8. The re-predicted product
 
     Four versions of bankfull width and depth for ~2.6M reaches:
     **ours** (retrained with the added USGS sites, with 90% intervals) · **deployed** (RiverShapeML's current models,

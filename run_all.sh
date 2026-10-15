@@ -15,3 +15,5 @@ echo; echo "== Retrain on RiverShapeML's own setup, re-predict the product, comp
 python nwm_q2.py && python predict_baseline.py
 python retrain_riverml.py --target TW_bf && python retrain_riverml.py --target Y_bf
 python predict_product.py && python build_product_compare.py
+echo; echo "== Train / validation / test diagnostics"
+python train_eval.py
