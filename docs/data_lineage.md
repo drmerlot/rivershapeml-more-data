@@ -430,8 +430,8 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  ahg_fits["AHG fits per site and data set<br/>14,221 rows"]:::table
-  ahg_input["AHG input (measurements in SI, after sanity rules)<br/>1,413,286 rows"]:::table
+  ahg_fits["AHG fits per site and data set<br/>20,463 rows"]:::table
+  ahg_input["AHG input (measurements in SI, after sanity rules)<br/>1,544,309 rows"]:::table
   hydroswot["HYDRoSWOT, RiverShapeML's copy<br/>223,022 rows<br/><i>from A</i>"]:::external
   retrain_sites["Site list (gage -&gt; reach, existing or new)<br/>10,308 rows<br/><i>from B</i>"]:::external
   targets["Targets (bankfull width and depth per site)<br/>8,904 rows"]:::table
@@ -463,7 +463,7 @@ flowchart TD
 #### AHG input (measurements in SI, after sanity rules) (`ahg_input`)
 
 - **Path:** `data/derived/ahg_input.parquet`
-- **Rows:** 1,413,286
+- **Rows:** 1,544,309
 - **Grain:** one measurement at a site with a reach and a 2-year flood
 - **Key:** site_no, set, row
 - **Source / provenance:**
@@ -478,7 +478,7 @@ flowchart TD
 #### AHG fits per site and data set (`ahg_fits`)
 
 - **Path:** `data/derived/ahg_fits.parquet`
-- **Rows:** 14,221
+- **Rows:** 20,463
 - **Grain:** one site x data set (all, hs)
 - **Key:** site_no, set
 - **Source / provenance:**
@@ -679,7 +679,7 @@ flowchart TD
   ml_inputs["RiverShapeML deployment inputs (ml_inputs)<br/>2,647,454 rows<br/><i>from A</i>"]:::external
   riverml_feature_lists["RiverShapeML model feature lists<br/>3 rows<br/><i>from A</i>"]:::external
   riverml_fill_medians["RiverShapeML fill-in medians<br/>478 rows<br/><i>from A</i>"]:::external
-  riverml_runs["Held-out predictions, current model's setup (width and depth)<br/>104,250 rows"]:::table
+  riverml_runs["Held-out predictions, current model's setup (width and depth)<br/>125,262 rows"]:::table
   targets["Targets (bankfull width and depth per site)<br/>8,904 rows<br/><i>from C</i>"]:::external
   train_eval["Train / validation / test diagnostics (width and depth)<br/>18,820 rows"]:::table
   training_table["Training table (targets joined to the current model's features)<br/>not stored"]:::table
@@ -722,7 +722,7 @@ flowchart TD
 #### Held-out predictions, current model's setup (width and depth) (`riverml_runs`)
 
 - **Path:** `data/derived/runs/riverml_*/predictions.parquet`
-- **Rows:** 104,250
+- **Rows:** 125,262
 - **Grain:** one held-out site x repeat (seed) x variant
 - **Key:** site_no, seed, variant
 - **Source / provenance:**
@@ -815,7 +815,7 @@ flowchart TD
   riverml_feature_lists["RiverShapeML model feature lists<br/>3 rows<br/><i>from A</i>"]:::external
   riverml_fill_medians["RiverShapeML fill-in medians<br/>478 rows<br/><i>from A</i>"]:::external
   riverml_models["RiverShapeML deployed models and model files<br/>3 rows<br/><i>from A</i>"]:::external
-  riverml_runs["Held-out predictions, current model's setup (width and depth)<br/>104,250 rows<br/><i>from E</i>"]:::external
+  riverml_runs["Held-out predictions, current model's setup (width and depth)<br/>125,262 rows<br/><i>from E</i>"]:::external
   targets["Targets (bankfull width and depth per site)<br/>8,904 rows<br/><i>from C</i>"]:::external
   training_table["Training table (targets joined to the current model's features)<br/>not stored<br/><i>from E</i>"]:::external
   usgs_channel_measurements["USGS channel measurements (national)<br/>4,772,063 rows<br/><i>from A</i>"]:::external
