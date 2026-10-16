@@ -1,0 +1,112 @@
+<!doctype html><html><head><meta charset='utf-8'><style>
+@page { size: Letter; margin: 0.75in 0.85in; }
+body { font-family: "Charter", "Georgia", serif; font-size: 10.5pt; line-height: 1.42; color: #1a1a1a; }
+h1 { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 17pt; line-height: 1.2; margin: 0 0 2pt; }
+h1 + p em { color: #666; font-size: 9.5pt; }
+h2 { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 12pt; margin: 14pt 0 4pt;
+     border-bottom: 1px solid #ccc; padding-bottom: 2pt; }
+p { margin: 0 0 7pt; }
+ul, ol { margin: 0 0 7pt; padding-left: 18pt; }
+li { margin-bottom: 3pt; }
+table { border-collapse: collapse; margin: 4pt 0 9pt; font-size: 9.5pt; }
+th, td { border-bottom: 1px solid #ddd; padding: 3pt 10pt 3pt 0; text-align: left; }
+th { border-bottom: 1.5px solid #888; font-family: "Helvetica Neue", Arial, sans-serif; font-weight: 600; }
+img { max-width: 100%; display: block; margin: 6pt auto 2pt; }
+figure { margin: 6pt 0 10pt; break-inside: avoid; }
+figcaption { font-size: 8.5pt; color: #555; }
+code { font-size: 9pt; }
+h2, h3 { break-after: avoid; }
+table, li { break-inside: avoid; }
+</style></head><body><style>@page { margin: 0.6in 0.75in; } body { font-size: 10pt; line-height: 1.36; } p { margin-bottom: 6pt; }
+img { margin: 2pt auto 0; } table { margin: 2pt auto 6pt; }</style>
+
+<h1>Adding USGS channel measurements to RiverShapeML</h1>
+<p><em>Andrew Sommerlot · andrewsommerlot@gmail.com · October 2026</em></p>
+<p>RiverShapeML (Modaresi Rad et al., 2024) predicts bankfull width and depth for all 2.65 million NHDPlus
+reaches in CONUS from a model trained on HYDRoSWOT, the USGS collection of acoustic Doppler (ADCP)
+measurements through 2014. USGS now publishes every channel measurement it makes, by every method (wading,
+bridge, cableway, boat), through its Water Data OGC API: 4.77 million records. This note asks whether
+those measurements improve the model, with everything else held fixed.</p>
+<p><strong>How it started.</strong> The USGS gage on Shoal Creek at Silverway Drive in Austin (08156675), at the end of a
+reach I walked, has 68 width measurements. HYDRoSWOT has 2, both from 2009, so the site falls below the
+5-measurement minimum and is not used. The other 66, mostly wading measurements, are simply outside HYDRoSWOT.
+Across CONUS, that pattern turns out to be common, and most common in small streams.</p>
+<p><strong>What I did.</strong> I rebuilt the bankfull targets from all USGS measurements, using RiverShapeML's sanity rules
+and Mike Johnson's AHGestimation for the hydraulic-geometry fits, evaluated at the 2-year flood (the median
+annual peak). I replaced the R² ≥ 0.6 site filter with a filter on the precision of the target itself,
+because many well-measured sites have nearly constant width and fail an R² test for that reason alone. The
+features, feature engineering and inference are those of the public NOAA-OWP/predict-riverML pipeline,
+whose national outputs I could reproduce exactly from the published models; the model is the same XGBoost
+setup with modest regularization and early stopping.</p>
+<p><strong>More sites where they were scarcest.</strong> Bankfull-width training sites rise from 4,375 to 6,928 (+58%).
+Sites draining under 10 km² rise from 66 to 111, and 10–100 km² from 596 to 1,157; 58% of NHDPlus reaches
+are under 10 km². Where non-ADCP and ADCP measurements were taken the same way at the same site and flow,
+widths agree within 0.1–2.4%.</p>
+<p><strong>Lower error in every size class, most in small streams.</strong> I trained the same model twice: on the
+existing RiverShapeML data (HYDRoSWOT measurements at existing sites) and on the expanded set (all
+measurements, existing and new sites), and scored both on the same held-out sites with cross-validation
+grouped by reach.</p>
+<p><img src="fig_errors.png" style="width:68%"></p>
+<p><em>Figure 1. Held-out median absolute error and median bias by drainage area, existing RiverShapeML data (A)
+vs the expanded training set (B2).</em></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Width</th>
+<th>Depth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Median absolute error, all sites</td>
+<td>25.4% → 22.4%</td>
+<td>23.8% → 20.9%</td>
+</tr>
+<tr>
+<td>Median absolute error, &lt; 10 km²</td>
+<td>78% → 41%</td>
+<td>72% → 32%</td>
+</tr>
+<tr>
+<td>Median bias, &lt; 10 km²</td>
+<td>+67% → +5%</td>
+<td>+72% → +7%</td>
+</tr>
+<tr>
+<td>Scored on the original HYDRoSWOT targets</td>
+<td>20.8% → 20.0%</td>
+<td>18.3% → 18.4%</td>
+</tr>
+</tbody>
+</table>
+<p>The model trained on the existing data overpredicts small streams because it has few to learn from; the
+new sites remove most of that bias. On the original HYDRoSWOT targets the expanded model is no worse.</p>
+<p><strong>A re-predicted national product.</strong> I ran the retrained model through the predict-riverML pipeline for
+every reach, with split-conformal 90% prediction intervals by drainage-area class (coverage 0.88–0.90 on
+held-out sites). Between 100 and 10,000 km² it agrees with the current model within about 10%. In
+headwaters it is narrower and closer to the Bieger et al. (2015) regional curves, so the national median
+width falls from 18.3 m to 10.9 m. Implausibly wide reaches (&gt; 1 km) drop from 0.47% to 0.002%.</p>
+<p><img src="fig_product.png" style="width:58%"></p>
+<p><em>Figure 2. Median bankfull width by drainage area for all CONUS reaches. The shaded region holds 44% of
+reaches and still has only ~50 training sites, so the gap to the regional curves narrows but does not close.</em></p>
+<p><strong>Questions I would value your view on.</strong></p>
+<ol>
+<li>Was the HYDRoSWOT-only choice deliberate, for example to keep a single measurement method? The agreement
+   above suggests the other methods can be added with little risk, but there may be reasons I have not seen.</li>
+<li>Headwaters still have few sites. Monotone constraints on drainage area, or blending with regional curves
+   below a threshold, could keep predictions on a physical trend where data are thin.</li>
+<li>About 7,000 more sites have enough measurements but short flow records; NWM-based flood frequencies,
+   which the codebase already supports, could bring them in.</li>
+<li>The same measurements are much denser at in-channel flows, which maps directly onto the in-channel model.</li>
+</ol>
+<p>I would be glad to prototype any of these within predict-riverML so they drop straight into the existing
+pipeline.</p>
+<p><strong>Credit and materials.</strong> This builds directly on Arash Modaresi Rad's RiverShapeML and the NOAA Office of
+Water Prediction's open predict-riverML pipeline, whose published models and inference code made a
+controlled comparison possible, and on AHGestimation by Mike Johnson, with contributions from Arash Modaresi
+Rad. A longer write-up, the code (one script rebuilds everything from public sources), an interactive
+notebook, and the re-predicted product with intervals for every reach are available on request.</p>
+<p><em>References.</em> Modaresi Rad, A., et al. (2024), <em>JGR: Machine Learning and Computation</em>,
+doi:10.1029/2024JH000173. Bieger, K., et al. (2015), <em>JAWRA</em> 51(3), 842–858, doi:10.1111/jawr.12282.
+Johnson, J. M., et al., AHGestimation, github.com/mikejohnson51/AHGestimation.</p></body></html>

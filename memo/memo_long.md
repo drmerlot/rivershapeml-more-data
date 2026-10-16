@@ -2,7 +2,7 @@
 
 *More gage sites, better-constrained targets, and a re-predicted national product with prediction intervals*
 
-*Andrew Sommerlot · andrewsommerlot@gmail.com · October 2026 · draft v2*
+*Andrew Sommerlot · andrewsommerlot@gmail.com · October 2026 · long form, draft 3*
 
 ## Summary
 
@@ -97,8 +97,9 @@ Both are scored with 5-fold cross-validation grouped by reach (3 seeds) on the s
 the all-measurement targets, which rest on about ten times more measurements per site. Because A never
 trained on those targets, both runs are also scored against the HYDRoSWOT-only targets (the reproduction
 check). HYDRoSWOT records maximum rather than mean depth, so A's depth target uses mean depth from the USGS
-records of the same HYDRoSWOT visits (97% match by date and discharge). Error is reported as ln(predicted / observed), summarized as median absolute error (%), median bias
-(%), share of sites within a factor of 2, and R² in log space.
+records of the same HYDRoSWOT visits (97% match by date and discharge). Error is reported as
+ln(predicted / observed), summarized as median absolute error (%), median bias (%), share of sites within a
+factor of 2, and R² in log space.
 
 **Prediction intervals.** The B2 model was refit on all sites and applied to every reach through the
 deployment pipeline. Split-conformal 90% prediction intervals (Lei et al., 2018) were computed per
@@ -109,7 +110,7 @@ the calibration (0.88–0.90 across classes).
 
 ### More sites, concentrated in small drainages
 
-| Drainage area (km²) | Width sites today (R² ≥ 0.6) | Expanded set: existing sites | Expanded set: new sites | Expanded total |
+| Drainage area (km²) | Published width targets (R² ≥ 0.6) | Expanded set: existing sites | Expanded set: new sites | Expanded total |
 |---|---:|---:|---:|---:|
 | < 10 | 66 | 38 | 73 | 111 |
 | 10–100 | 596 | 560 | 597 | 1,157 |
@@ -118,8 +119,9 @@ the calibration (0.88–0.90 across classes).
 | > 10,000 | 485 | 577 | 193 | 770 |
 | **Total** | **4,375** | **4,719** | **2,209** | **6,928** |
 
-Totals include 10 sites without a drainage area. Depth targets follow the same pattern (7,017 sites). The gain is largest relative to need: 58% of NHDPlus
-reaches drain less than 10 km², and those reaches were represented by 66 training sites.
+Totals include 10 sites without a drainage area. Depth targets follow the same pattern (7,017 sites). The
+gain is largest relative to need: 58% of NHDPlus reaches drain less than 10 km², and those reaches were
+represented by 66 training sites.
 
 ### The added measurements are consistent with HYDRoSWOT
 
@@ -127,8 +129,8 @@ On a 300-site sample, 97% of HYDRoSWOT measurements matched a record in the USGS
 discharge within 3%), and a typical site has 13 HYDRoSWOT measurements against 142 in total. Where the same
 deployment type appears in both, widths agree closely (bridge +0.1%, boat +2.4%, cableway +1.0%). Wading
 measurements are about 33% narrower than bridge measurements at the same flows, because they are taken at
-different cross sections; this is a location difference rather than an error, and AHGestimation's filters
-and the joint fit absorb most of it. Repeat-measurement scatter sets a noise floor of 8–15% for width and
+different cross sections; this is a location difference rather than a measurement error, and the per-site
+fit pools both. Repeat-measurement scatter sets a noise floor of 8–15% for width and
 14–19% for depth. The joint AHG fit changes the median width target by less than 1% relative to a plain
 log-log fit but corrects poorly conditioned sites (e.g., Walnut Creek: 28.1 m → 19.0 m).
 
@@ -151,8 +153,8 @@ sites.*
 The model trained on the existing data overpredicts small streams because it has almost no small streams to
 learn from; the new sites remove most of that bias. Gains are smaller but consistent in larger basins (width
 25% → 20% above 10,000 km²). Overall, about half to two-thirds of the gain comes from the better-constrained
-targets at existing sites; in small streams nearly all of it comes from the new sites. For context, repeat-measurement scatter means no model can do
-much better than about 10–15% median error on width.
+targets at existing sites; in small streams nearly all of it comes from the new sites. For context,
+repeat-measurement scatter means no model can do much better than about 10–15% median error on width.
 
 **Reproduction check.** Scored against the HYDRoSWOT-only targets at existing sites, the two runs are within
 a percentage point: width 20.8% (A) vs 20.0% (B2), depth 18.3% vs 18.4%. The expanded model gives up
@@ -178,10 +180,10 @@ and the Bieger et al. (2015) regional curves. The shaded region holds 44% of rea
 Between 100 and 10,000 km² the three ML products agree closely (median widths within about 10%). Above
 10,000 km² the current model runs wider (median 152 m, against 122 m for the retrain and 110 m for the 2024
 release), and all curves wobble there because few reaches fall in each bin and large rivers of different
-character (e.g., the Colorado and the Missouri) share them. Below 10 km² they
-diverge: median widths are 9.1 m (expanded-set retrain), 17.6 m (current model), 26.5 m (2024 release) and
+character (e.g., the Colorado and the Missouri) share them. Below 10 km² they diverge: median widths are 9.1 m (expanded-set retrain), 17.6 m (current model), 26.5 m (2024 release) and
 3.5 m (Bieger). Downstream scaling moves toward the regional curves, and implausibly wide reaches nearly
-disappear. Prediction intervals are honest about where the model knows least: for width they span roughly
+disappear. Because most reaches are small, the national median width falls from 18.3 m (current model) to
+10.9 m; this is the largest practical change for users of the product. Prediction intervals are honest about where the model knows least: for width they span roughly
 0.55–1.9× the prediction above 10 km² and 0.36–4.2× below it.
 
 The Silverway reach illustrates both the improvement and its limit. The retrain predicts 15.8 m wide and
@@ -211,7 +213,10 @@ with an uncertainty term.
 **Two observations I could not resolve from the public record.** The current deployed models and the 2024
 HydroShare release differ more than I expected (log R² ~0.35 for width between them), and the HydroShare
 file contains about 65,000 duplicated reach IDs. Both are probably explained by a model update between
-releases, and they are noted here as questions, not findings.
+releases, and they are noted here as questions, not findings. Relatedly, the training-target files in the
+RiverShapeML research repository sit 1.6–1.9 times below the deployed models' predictions at the same sites,
+while the targets built here match the deployed scale (ratio 1.0 for depth, 1.13 for width). That suggests
+the deployed models were trained on a later target set than the one in the repository.
 
 ## 5. Questions and possible next steps
 
