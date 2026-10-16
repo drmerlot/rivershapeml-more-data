@@ -1,4 +1,4 @@
-<style>@page { margin: 0.6in 0.75in; } body { font-size: 10pt; line-height: 1.36; } p { margin-bottom: 6pt; }
+<style>@page { margin: 0.55in 0.75in; } body { font-size: 10pt; line-height: 1.36; } p { margin-bottom: 6pt; }
 img { margin: 2pt auto 0; } table { margin: 2pt auto 6pt; }</style>
 
 # Adding USGS channel measurements to RiverShapeML
@@ -34,7 +34,7 @@ existing RiverShapeML data (HYDRoSWOT measurements at existing sites) and on the
 measurements, existing and new sites), and scored both on the same held-out sites with cross-validation
 grouped by reach.
 
-<img src="fig_errors.png" style="width:68%">
+<img src="fig_errors.png" style="width:63%">
 
 *Figure 1. Held-out median absolute error and median bias by drainage area, existing RiverShapeML data (A)
 vs the expanded training set (B2).*
@@ -44,10 +44,12 @@ vs the expanded training set (B2).*
 | Median absolute error, all sites | 25.4% → 22.4% | 23.8% → 20.9% |
 | Median absolute error, < 10 km² | 78% → 41% | 72% → 32% |
 | Median bias, < 10 km² | +67% → +5% | +72% → +7% |
-| Scored on the original HYDRoSWOT targets | 20.8% → 20.0% | 18.3% → 18.4% |
+| Median absolute error, sites new to training | 32% → 26% | 38% → 25% |
+| Existing sites, on the original HYDRoSWOT targets | 20.4% → 19.6% | 18.2% → 18.2% |
 
 The model trained on the existing data overpredicts small streams because it has few to learn from; the
-new sites remove most of that bias. On the original HYDRoSWOT targets the expanded model is no worse.
+new sites remove most of that bias. The gain comes from the new sites; at existing sites, judged on the
+original HYDRoSWOT targets, the two models match.
 
 **A re-predicted national product.** I ran the retrained model through the predict-riverML pipeline for
 every reach, with split-conformal 90% prediction intervals by drainage-area class (coverage 0.88–0.90 on
@@ -55,23 +57,22 @@ held-out sites). Between 100 and 10,000 km² it agrees with the current model wi
 headwaters it is narrower and closer to the Bieger et al. (2015) regional curves, so the national median
 width falls from 18.3 m to 10.9 m. Implausibly wide reaches (> 1 km) drop from 0.47% to 0.002%.
 
-<img src="fig_product.png" style="width:58%">
+<img src="fig_product.png" style="width:54%">
 
-*Figure 2. Median bankfull width by drainage area for all CONUS reaches. The shaded region holds 44% of
-reaches and still has only ~50 training sites, so the gap to the regional curves narrows but does not close.*
+*Figure 2. Median bankfull width by drainage area, all CONUS reaches. The shaded region holds 44% of reaches
+but only ~50 training sites; the gap to the regional curves narrows but does not close.*
 
 **Questions I would value your view on.**
 
-1. Was the HYDRoSWOT-only choice deliberate, for example to keep a single measurement method? The agreement
-   above suggests the other methods can be added with little risk, but there may be reasons I have not seen.
+1. Was the HYDRoSWOT-only choice deliberate, for example to keep one measurement method? The agreement above
+   suggests other methods can be added with little risk, but there may be reasons I have not seen.
 2. Headwaters still have few sites. Monotone constraints on drainage area, or blending with regional curves
    below a threshold, could keep predictions on a physical trend where data are thin.
 3. About 7,000 more sites have enough measurements but short flow records; NWM-based flood frequencies,
    which the codebase already supports, could bring them in.
 4. The same measurements are much denser at in-channel flows, which maps directly onto the in-channel model.
 
-I would be glad to prototype any of these within predict-riverML so they drop straight into the existing
-pipeline.
+I would be glad to prototype any of these within predict-riverML.
 
 **Credit and materials.** This builds directly on Arash Modaresi Rad's RiverShapeML and the NOAA Office of
 Water Prediction's open predict-riverML pipeline, whose published models and inference code made a
@@ -79,6 +80,6 @@ controlled comparison possible, and on AHGestimation by Mike Johnson, with contr
 Rad. A longer write-up, the code (one script rebuilds everything from public sources), an interactive
 notebook, and the re-predicted product with intervals for every reach are available on request.
 
-*References.* Modaresi Rad, A., et al. (2024), *JGR: Machine Learning and Computation*,
-doi:10.1029/2024JH000173. Bieger, K., et al. (2015), *JAWRA* 51(3), 842–858, doi:10.1111/jawr.12282.
-Johnson, J. M., et al., AHGestimation, github.com/mikejohnson51/AHGestimation.
+<p style="font-size:8.5pt; line-height:1.3; color:#444"><em>References.</em> Modaresi Rad, A., et al. (2024),
+<em>JGR: Machine Learning and Computation</em>, doi:10.1029/2024JH000173. Bieger, K., et al. (2015), <em>JAWRA</em>
+51(3), 842–858, doi:10.1111/jawr.12282. Johnson, J. M., et al., AHGestimation (R package).</p>
