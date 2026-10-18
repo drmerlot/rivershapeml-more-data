@@ -215,9 +215,12 @@ NWM-based Q₂ agrees well overall (log R² ~0.80) but less well under 10 km² (
 with an uncertainty term.
 
 **Two observations I could not resolve from the public record.** The current deployed models and the 2024
-HydroShare release differ more than I expected (log R² ~0.35 for width between them), and the HydroShare
-file contains about 65,000 duplicated reach IDs. Both are probably explained by a model update between
-releases, and they are noted here as questions, not findings. Relatedly, the training-target files in the
+HydroShare release differ more than I expected (log R² ~0.35 for width between them). Separately, 932 of
+the 2.65 million reach IDs in the HydroShare file appear more than once (66,341 rows in total). The repeat
+counts are perfect squares (4, 9, 16, 64, …), which is the signature of a many-to-many merge, and most of
+these IDs carry two distinct predictions, so they may be two features sharing an ID rather than true
+copies. For the comparison here each was collapsed to its median; with 932 reaches the effect is
+negligible. Both points are noted as questions, not findings. Relatedly, the training-target files in the
 RiverShapeML research repository sit 1.6–1.9 times below the deployed models' predictions at the same sites,
 while the targets built here match the deployed scale (ratio 1.0 for depth, 1.13 for width). That suggests
 the deployed models were trained on a later target set than the one in the repository.
@@ -239,8 +242,8 @@ already been considered.
    natural next experiment and maps directly onto the existing in-channel model.
 5. **Training settings.** Early stopping and modest regularization reach the same accuracy with about a
    quarter of the trees, which shortens training and inference.
-6. **Release housekeeping.** An updated HydroShare release could carry prediction intervals, and the
-   duplicate IDs noted above.
+6. **Release housekeeping.** An updated HydroShare release could carry prediction intervals and resolve
+   the repeated IDs noted above.
 
 I would be glad to prototype any of these within the predict-riverML structure so that the results drop
 straight into the existing pipeline.

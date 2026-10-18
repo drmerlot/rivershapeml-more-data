@@ -38,7 +38,7 @@ during the analysis; keep, merge or cut when we draft.
 - **Measurement location as variability:** use the spread between measurement spots at a gage as an estimate of
   within-reach variability, or a per-site target uncertainty for weighting.
 - **Questions rather than steps:** whether the HydroShare 2024 release should be updated to the current model (and
-  its ~65k duplicated reach IDs); which bankfull definition downstream users need (2-year-flood water width vs
+  its 932 repeated reach IDs (66,341 rows; perfect-square repeat counts suggest a many-to-many merge)); which bankfull definition downstream users need (2-year-flood water width vs
   field top-of-bank, ~1.5–2× apart).
 - **Finding to mention (not a step):** at ~7,400 gaged reaches, the NWM v2.1 2-year flood runs ~20% below the gage
   value overall and ~50% below for drainage areas < 10 km² (10th-90th percentile ratio 0.03-2.2). It is a key input
