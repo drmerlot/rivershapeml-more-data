@@ -60,9 +60,9 @@ close.</em></figcaption></figure>
 
 **Questions and discussion.**
 
-1. Was the HYDRoSWOT-only choice deliberate, for example to keep one measurement method? The agreement
-   above suggests data from other measurement methods could be added, but there may be reasons I have not
-   seen.
+1. What was the original motivation for training on HYDRoSWOT, for example a single, consistent
+   measurement method? The agreement above suggests data from other methods could be added, and I'd be
+   glad to learn about any considerations I haven't seen.
 2. About 7,000 more sites, mostly small streams, have enough measurements but short flow records.
    RiverShapeML's existing NWM flood-frequency option could be used to bring them in.
 3. The same measurements are much denser at in-channel flows, which maps directly onto the in-channel
