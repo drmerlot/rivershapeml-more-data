@@ -62,15 +62,15 @@ width falls from 18.3 m to 10.9 m. Implausibly wide reaches (> 1 km) drop from 0
 *Figure 2. Median bankfull width by drainage area, all CONUS reaches. The shaded region holds 44% of reaches
 but only ~50 training sites; the gap to the regional curves narrows but does not close.*
 
-**Questions I would value your view on.**
+**Questions and discussion.**
 
-1. Was the HYDRoSWOT-only choice deliberate, for example to keep one measurement method? The agreement above
-   suggests other methods can be added with little risk, but there may be reasons I have not seen.
-2. Headwaters still have few sites. Monotone constraints on drainage area, or blending with regional curves
-   below a threshold, could keep predictions on a physical trend where data are thin.
-3. About 7,000 more sites have enough measurements but short flow records; NWM-based flood frequencies,
+1. Was the HYDRoSWOT-only choice deliberate, for example to keep one measurement method? The agreement
+   above suggests data from other measurement methods could be added, but there may be reasons I have not
+   seen.
+2. About 7,000 more sites have enough measurements but short flow records; NWM-based flood frequencies,
    which the codebase already supports, could bring them in.
-4. The same measurements are much denser at in-channel flows, which maps directly onto the in-channel model.
+3. The same measurements are much denser at in-channel flows, which maps directly onto the in-channel
+   model. This would be a reasonable next step to try with the process described here.
 
 I would be glad to prototype any of these within predict-riverML.
 
