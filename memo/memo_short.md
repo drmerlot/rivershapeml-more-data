@@ -26,8 +26,8 @@ setup with modest regularization and early stopping.
 
 **More sites where they were scarcest.** Bankfull-width training sites rise from 4,375 to 6,928 (+58%).
 Sites draining under 10 km² rise from 66 to 111, and 10–100 km² from 596 to 1,157; 58% of NHDPlus reaches
-are under 10 km². Where non-ADCP and ADCP measurements were taken the same way at the same site and flow,
-widths agree within 0.1–2.4%.
+are under 10 km². At the same sites, bankfull widths from all measurements and from HYDRoSWOT alone agree
+at the median (ratio 1.00), and depths measured the same way agree within 0.1–2.4%.
 
 **Lower error in every size class, most in small streams.** I trained the same model twice: on the
 existing RiverShapeML data (HYDRoSWOT measurements at existing sites) and on the expanded set (all

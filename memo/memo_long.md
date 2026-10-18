@@ -16,8 +16,8 @@ added data improve the model where it is weakest?**
 
 - **More training sites, mostly where they were scarcest.** Bankfull-width training sites rise from 4,375
   to 6,928 (+58%). Sites under 10 km² rise from 66 to 111, and sites of 10–100 km² from 596 to 1,157.
-- **The added measurements are sound.** Where non-ADCP and ADCP measurements were taken the same way at the
-  same site and flow, widths agree within 0.1–2.4%.
+- **The added measurements are sound.** At the same sites, bankfull widths from all measurements and from
+  HYDRoSWOT alone agree at the median (ratio 1.00); depths measured the same way agree within 0.1–2.4%.
 - **Held-out error falls in every size class, most in small streams.** Against the same model trained on
   the existing RiverShapeML data, median absolute error in bankfull width falls from 78% to 41% for sites
   under 10 km² (bias +67% → +5%), and from 25% to 22% overall; depth improves similarly. The gain comes
@@ -127,11 +127,13 @@ represented by 66 training sites.
 ### The added measurements are consistent with HYDRoSWOT
 
 On a 300-site sample, 97% of HYDRoSWOT measurements matched a record in the USGS collection (same day,
-discharge within 3%), and a typical site has 13 HYDRoSWOT measurements against 142 in total. Where the same
-deployment type appears in both, widths agree closely (bridge +0.1%, boat +2.4%, cableway +1.0%). Wading
-measurements are about 33% narrower than bridge measurements at the same flows, because they are taken at
-different cross sections; this is a location difference rather than a measurement error, and the per-site
-fit pools both. Repeat-measurement scatter sets a noise floor of 8–15% for width and
+discharge within 3%), and a typical site has 13 HYDRoSWOT measurements against 142 in total. For width, the
+curve fit to the added measurements matches the HYDRoSWOT curve over shared flows at the median (+0.6%; 62%
+of sites within ±10%), and across 3,666 existing sites the bankfull width targets from all measurements and
+from HYDRoSWOT alone agree at the median (ratio 0.996). For depth, where the same deployment type appears in
+both, depths agree closely (bridge +0.1%, boat +2.4%, cableway +1.0%). Wading sections are about 33% shallower
+than bridge sections at the same flows, because they are taken at different cross sections; this is a
+location difference rather than a measurement error, and the per-site fit pools both. Repeat-measurement scatter sets a noise floor of 8–15% for width and
 14–19% for depth. The joint AHG fit changes the median width target by less than 1% relative to a plain
 log-log fit but corrects poorly conditioned sites (e.g., Walnut Creek: 28.1 m → 19.0 m).
 

@@ -38,8 +38,10 @@ contributions from Arash Modaresi Rad.
 
 58% of NHDPlus reaches drain less than 10 km². Depth targets follow the same pattern (7,017 sites).
 
-**The added measurements are consistent with HYDRoSWOT.** Where the same kind of deployment appears in both,
-widths agree within 0.1–2.4%: bridge +0.1%, boat +2.4%, cableway +1.0%.
+**The added measurements are consistent with HYDRoSWOT.** Across 3,666 existing sites, bankfull width
+targets from all measurements and from HYDRoSWOT alone agree at the median (ratio 0.996). For depth, where the
+same kind of deployment appears in both, depths agree within 0.1–2.4%: bridge +0.1%, boat +2.4%,
+cableway +1.0%.
 
 **Lower held-out error, coming from the new sites.** The same model was trained on the existing RiverShapeML
 data (**A**: existing sites, HYDRoSWOT-only targets) and on the expanded training set (**B2**). Both were
