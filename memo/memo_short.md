@@ -74,7 +74,7 @@ but only ~50 training sites; the gap to the regional curves narrows but does not
 
 I would be glad to prototype any of these within predict-riverML.
 
-**Credit and materials.** This builds directly on Arash Modaresi Rad's RiverShapeML and the NOAA Office of
+**Credit and citations.** This builds directly on Arash Modaresi Rad's RiverShapeML and the NOAA Office of
 Water Prediction's open predict-riverML pipeline, whose published models and inference code made a
 controlled comparison possible, and on AHGestimation by Mike Johnson, with contributions from Arash Modaresi
 Rad. A longer write-up, the code (one script rebuilds everything from public sources), an interactive
