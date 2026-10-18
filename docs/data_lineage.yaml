@@ -537,6 +537,18 @@ tables:
       totdasqkm, streamorde, gnis_name: "from e2nhdplus"
       lat, long: "degrees; from ml_inputs"
 
+  product_release:
+    chapter: F
+    title: Release file, ML-derived channel width and depth (expanded-set retrain)
+    path: data/derived/release/rivershapeml_expanded_set_v1.parquet
+    grain: one reach
+    key: [comid]
+    source: {script: src/export_product.py}
+    columns:
+      comid: "integer; NHDPlusV2 COMID"
+      tw_bf_m, tw_bf_m_p05, tw_bf_m_p95: "m; bankfull width and its 90% prediction interval (NaN where drainage area is zero or missing)"
+      y_bf_m, y_bf_m_p05, y_bf_m_p95: "m; bankfull mean depth and its 90% prediction interval"
+
   measurement_cache:
     chapter: F
     title: Notebook measurement cache
@@ -701,6 +713,14 @@ operations:
     outputs: [product_compare]
     math:
       - "join on COMID; 2024 release repeated IDs collapsed to their median; keep drainage area > 0"
+  export_release:
+    chapter: F
+    title: Export the release file
+    script: src/export_product.py
+    inputs: [product_expanded]
+    outputs: [product_release]
+    math:
+      - "keep COMID, width, depth and interval bounds; round to the millimeter"
   notebook_cache:
     chapter: F
     title: Notebook cache

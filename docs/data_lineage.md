@@ -12,7 +12,7 @@ flowchart TD
   C["C. Targets (y)<br/>3 tables"]:::table
   D["D. Data checks<br/>4 tables"]:::table
   E["E. Model experiments<br/>4 tables"]:::table
-  F["F. Product<br/>5 tables"]:::table
+  F["F. Product<br/>6 tables"]:::table
   A --> B
   A --> C
   A --> D
@@ -812,6 +812,7 @@ flowchart TD
   product_compare["Four-product comparison, all reaches<br/>2,615,757 rows"]:::table
   product_current["Current model output, all reaches<br/>2,647,454 rows"]:::table
   product_expanded["ML-derived channel width and depth, expanded-set retrain<br/>2,647,454 rows"]:::table
+  product_release["Release file, ML-derived channel width and depth (expanded-set retrain)<br/>2,647,454 rows"]:::table
   riverml_feature_lists["RiverShapeML model feature lists<br/>3 rows<br/><i>from A</i>"]:::external
   riverml_fill_medians["RiverShapeML fill-in medians<br/>478 rows<br/><i>from A</i>"]:::external
   riverml_models["RiverShapeML deployed models and model files<br/>3 rows<br/><i>from A</i>"]:::external
@@ -839,6 +840,9 @@ flowchart TD
   e2nhdplus --> op_compare_products
   ml_inputs --> op_compare_products
   op_compare_products --> product_compare
+  op_export_release(["Export the release file"]):::op
+  product_expanded --> op_export_release
+  op_export_release --> product_release
   op_notebook_cache(["Notebook cache"]):::op
   usgs_channel_measurements --> op_notebook_cache
   targets --> op_notebook_cache
@@ -901,6 +905,19 @@ flowchart TD
   - `totdasqkm, streamorde, gnis_name`: from e2nhdplus
   - `lat, long`: degrees; from ml_inputs
 
+#### Release file, ML-derived channel width and depth (expanded-set retrain) (`product_release`)
+
+- **Path:** `data/derived/release/rivershapeml_expanded_set_v1.parquet`
+- **Rows:** 2,647,454
+- **Grain:** one reach
+- **Key:** comid
+- **Source / provenance:**
+  - **script:** src/export_product.py
+- **Columns:**
+  - `comid`: integer; NHDPlusV2 COMID
+  - `tw_bf_m, tw_bf_m_p05, tw_bf_m_p95`: m; bankfull width and its 90% prediction interval (NaN where drainage area is zero or missing)
+  - `y_bf_m, y_bf_m_p05, y_bf_m_p95`: m; bankfull mean depth and its 90% prediction interval
+
 #### Notebook measurement cache (`measurement_cache`)
 
 - **Path:** `data/derived/retrain_measurements.parquet`
@@ -939,6 +956,14 @@ flowchart TD
 - **Out:** `product_compare`
 - **Math:**
   - join on COMID; 2024 release repeated IDs collapsed to their median; keep drainage area > 0
+
+#### Export the release file (`export_release`)
+
+- **Script:** `src/export_product.py`
+- **In:** `product_expanded`
+- **Out:** `product_release`
+- **Math:**
+  - keep COMID, width, depth and interval bounds; round to the millimeter
 
 #### Notebook cache (`notebook_cache`)
 

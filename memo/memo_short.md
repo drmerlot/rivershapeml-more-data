@@ -78,8 +78,8 @@ I would be glad to prototype any of these within predict-riverML.
 Water Prediction's open predict-riverML pipeline, whose published models and inference code made a
 controlled comparison possible, and on AHGestimation by Mike Johnson, with contributions from Arash Modaresi
 Rad. The code (one script rebuilds everything from public sources), a longer write-up and an interactive
-notebook are at [github.com/drmerlot/rivershapeml-more-data](https://github.com/drmerlot/rivershapeml-more-data); the re-predicted product with intervals for every reach is available on
-request.
+notebook are at [github.com/drmerlot/rivershapeml-more-data](https://github.com/drmerlot/rivershapeml-more-data); the re-predicted product with intervals for every reach is in the
+[v1.0 release](https://github.com/drmerlot/rivershapeml-more-data/releases/tag/v1.0).
 
 <p style="font-size:8.5pt; line-height:1.3; color:#444"><em>References.</em> Modaresi Rad, A., et al. (2024),
 <em>JGR: Machine Learning and Computation</em>, doi:10.1029/2024JH000173. Bieger, K., et al. (2015), <em>JAWRA</em>
