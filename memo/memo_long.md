@@ -256,7 +256,7 @@ already been considered.
 
 1. **What was the original motivation for training on HYDRoSWOT?** For example, a single, consistent
    measurement method. The agreement statistics above suggest the other methods can be added with little
-   risk, and I'd be glad to learn about any considerations I haven't seen.
+   risk.
 2. **Headwater behavior.** Monotone constraints on drainage area and discharge, or blending with regional
    curves below a threshold, would keep predictions on a physically sensible trend where data are sparse.
 3. **More sites.** Recover the unlinked gages, and use RiverShapeML's NWM flood-frequency option to bring in
