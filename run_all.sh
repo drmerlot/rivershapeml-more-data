@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Reproduce the full analysis (after ./get_data.sh and ./setup_r.sh). Every table this writes is described in
-# docs/data_model.yaml; `python src/data_model.py` checks the two against each other.
+# docs/data_lineage.yaml; `python src/data_lineage.py` checks the two against each other.
 set -euo pipefail
 cd "$(dirname "$0")/src"
 echo "== B. Site selection";              python new_rows.py && python site_comids.py

@@ -1,6 +1,6 @@
 """Render a memo Markdown file to PDF (Markdown -> styled HTML -> headless Chrome).
 
-Usage: python memo/build_pdf.py [memo/memo_v1.md]
+Usage: python memo/build_pdf.py [memo/memo_short.md]
 Writes the .html and .pdf next to the .md. Images referenced in the Markdown are resolved
 relative to the memo folder.
 """
@@ -48,4 +48,4 @@ def main(md_path):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else Path(__file__).parent / "memo_v1.md")
+    main(sys.argv[1] if len(sys.argv) > 1 else Path(__file__).parent / "memo_short.md")

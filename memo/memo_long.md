@@ -78,8 +78,9 @@ replaced it with a precision filter: standard error of the log target at Q₂ �
 measured flow (limits extrapolation), and at least 5 measurements.
 
 **Model.** Features, feature engineering, missing-value handling and inference follow predict-riverML exactly
-(30 features from `ml_inputs.parquet`). I first reproduced the deployed models' national predictions (width
-median 18.27 m vs 18.43 m in their saved statistics; depth identical). For retraining I kept their XGBoost
+(30 features from `ml_inputs.parquet`). I first reproduced the deployed models' national predictions: on
+the same reaches, the published output statistics match to six decimals (e.g., minimum and maximum width
+1.813823 m and 14,114.583008 m; median 18.43 m). For retraining I kept their XGBoost
 learning rate and sampling settings but chose tree depth, minimum child weight and number of trees by a
 regularization sweep with early stopping on a reach-grouped 70/15/15 split (depth 6, min_child_weight 5,
 about 2,450 trees). This matched the deployed settings' held-out accuracy with roughly a quarter of the
@@ -184,7 +185,7 @@ Between 100 and 10,000 km² the three ML products agree closely (median widths w
 release), and all curves wobble there because few reaches fall in each bin and large rivers of different
 character (e.g., the Colorado and the Missouri) share them. Below 10 km² they diverge: median widths are 9.1 m (expanded-set retrain), 17.6 m (current model), 26.5 m (2024 release) and
 3.5 m (Bieger). Downstream scaling moves toward the regional curves, and implausibly wide reaches nearly
-disappear. Because most reaches are small, the national median width falls from 18.3 m (current model) to
+disappear. Because most reaches are small, the national median width falls from 18.4 m (current model) to
 10.9 m; this is the largest practical change for users of the product. The prediction intervals widen where
 data are thin: for width they span roughly 0.55–1.9× the prediction above 10 km² and 0.36–4.2× below it.
 Below 10 km² they rest on about 110 calibration sites, and gaged small streams are not typical of NHDPlus
@@ -210,9 +211,19 @@ on gaged sites and are exchangeable only to the extent that ungaged reaches rese
 
 **Some useful data remain unused.** About 1,300 candidate gages did not link to a reach through the NLDI, and
 about 7,000 sites have five or more measurements but less than 10 years of daily flow. The latter could
-use National Water Model flood frequencies, which the RiverShapeML codebase already supports; at gages
-NWM-based Q₂ agrees well overall (log R² ~0.80) but less well under 10 km² (0.47), which argues for using it
-with an uncertainty term.
+use National Water Model flood frequencies; RiverShapeML's training code already has an NWM
+flood-frequency option, used there in place of gage floods at the same sites. Most of these sites are small
+streams (985 under 10 km² and 2,159 at 10–100 km², of those with a known drainage area). In an exploratory
+check, NWM-based Q₂ agreed with gage Q₂ fairly well overall (log R² ~0.80) but less well under 10 km² (0.47),
+which argues for bringing these sites in with lower weight or a flag.
+
+**Simplifications to revisit.** Three choices here are deliberately simple and worth tightening. (i) Where
+USGS records a split-flow measurement as one row per channel, the rows are treated as separate points; this
+affects a minority of sites (622 with more than 10% of rows split). (ii) Q₂ uses each gage's full peak record,
+which often starts decades before the 2000+ measurements, and regulated peaks are kept; both runs share Q₂, so
+the comparison is unaffected, but absolute target levels are. (iii) Cross-validation holds out whole reaches,
+not whole basins, so neighbouring gages on the same river can sit on either side of a split; a basin-blocked
+check would be a useful robustness test.
 
 **Two observations I could not resolve from the public record.** The current deployed models and the 2024
 HydroShare release differ more than I expected (log R² ~0.35 for width between them). Separately, 932 of
@@ -235,8 +246,8 @@ already been considered.
    there may be reasons I have not seen.
 2. **Headwater behavior.** Monotone constraints on drainage area and discharge, or blending with regional
    curves below a threshold, would keep predictions on a physically sensible trend where data are sparse.
-3. **More sites.** Recover the unlinked gages and add NWM-based flood frequencies for the ~7,000
-   short-record sites.
+3. **More sites.** Recover the unlinked gages, and use RiverShapeML's NWM flood-frequency option to bring in
+   the ~7,000 short-record sites, mostly small streams.
 4. **In-channel geometry.** The same measurements support targets at lower flows (in-channel flow is about
    6% of bankfull flow at the median), and these sites are far better sampled there than at Q₂. This is the
    natural next experiment and maps directly onto the existing in-channel model.
@@ -250,11 +261,11 @@ straight into the existing pipeline.
 
 ## Code and data
 
-Repository: github.com/drmerlot/rivershapeml-more-data (private; access on request). It contains every
-script, a single `run_all.sh` that rebuilds all results from public sources, a checked data-lineage record,
-an interactive notebook (marimo) for exploring sites, targets, runs and the national product, and the
-re-predicted product ("ML-derived channel width and depth, expanded-set retrain") with 90% prediction
-intervals for every reach.
+Repository: [github.com/drmerlot/rivershapeml-more-data](https://github.com/drmerlot/rivershapeml-more-data). It contains every script, a single `run_all.sh` that rebuilds all
+results from public sources, a checked data-lineage record, and an interactive notebook (marimo) for
+exploring sites, targets, runs and the national product. The re-predicted product ("ML-derived channel width
+and depth, expanded-set retrain", with 90% prediction intervals for every reach) is regenerated by the
+pipeline and is available on request.
 
 ## Acknowledgments
 

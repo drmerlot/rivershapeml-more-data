@@ -1,9 +1,8 @@
-# Next steps (for the memo)
+# Next steps
 
-Running list of follow-ups the analysis points to. **Confirmed** = agreed for the memo. **Candidates** = raised
-during the analysis; keep, merge or cut when we draft.
+Follow-ups the analysis points to, roughly in order of expected value.
 
-## Confirmed
+## Most promising
 
 1. **Recover gages that don't link to a reach.** ~1,300 of 4,501 new candidate gages (~30%, slightly more for
    small streams, more often in the West) aren't linked to an NHDPlus reach in NLDI, so they were dropped. Two ways
@@ -11,17 +10,20 @@ during the analysis; keep, merge or cut when we draft.
    to verify), or snapping gage coordinates to the nearest reach and accepting the match only if drainage areas
    agree within ~25%. Could add several hundred sites.
 
-## Planned (end of project)
 
 2. **In-channel targets and models.** Repeat the full process (targets, retrain, re-predict, compare) for
    in-channel width and depth. The in-channel flow (RiverShapeML's 100%-annual-exceedance flood, a median ~6% of the
    2-year flood) sits where wading measurements are densest, so the added data should help most there. The current
    deployed model is bankfull-only, but OWP flood mapping uses in-channel values.
 
-## Candidates
+## Other candidates
 
-- **Sites without a long daily flow record** (~7,075 more candidates): usable if NWM-based flood frequencies are
-  acceptable for their targets; the research repo already has `nwm_*` target variants.
+- **Sites without a long daily flow record** (~7,075 more candidates, mostly small streams: 985 under 10 km²
+  and 2,159 at 10–100 km² of those with a known drainage area): usable if NWM-based flood frequencies are
+  acceptable for their targets; RiverShapeML's training code has an NWM flood-frequency option.
+- **Split-flow measurements:** sum flow, width and area per site and time where USGS records one row per
+  channel, and drop exact duplicate rows; then rerun targets and models.
+- **Basin-blocked cross-validation** (e.g., grouped by HUC-4) as a robustness check on the A vs B2 result.
 - **Monotone constraints** in XGBoost (width and depth never decrease with drainage area or flow) to stop the
   upward bend below ~5 km², where 44% of reaches sit with almost no training data. Or blend toward a regional
   curve below the smallest training size.
@@ -40,7 +42,7 @@ during the analysis; keep, merge or cut when we draft.
 - **Questions rather than steps:** whether the HydroShare 2024 release should be updated to the current model (and
   its 932 repeated reach IDs (66,341 rows; perfect-square repeat counts suggest a many-to-many merge)); which bankfull definition downstream users need (2-year-flood water width vs
   field top-of-bank, ~1.5–2× apart).
-- **Finding to mention (not a step):** at ~7,400 gaged reaches, the NWM v2.1 2-year flood runs ~20% below the gage
-  value overall and ~50% below for drainage areas < 10 km² (10th-90th percentile ratio 0.03-2.2). It is a key input
-  to the current model, so small-stream inputs are weakest exactly where training data is thinnest. (From the
-  earlier stand-in experiment; scripts in archive/standin/.)
+- **Observation (not a step):** in an exploratory check at ~7,400 gaged reaches (not part of this pipeline),
+  the NWM v2.1 2-year flood ran ~20% below the gage value overall and ~50% below for drainage areas < 10 km²
+  (10th-90th percentile ratio 0.03-2.2). It is a key input to the current model, so small-stream inputs are
+  weakest exactly where training data is thinnest.

@@ -55,7 +55,7 @@ original HYDRoSWOT targets, the two models match.
 every reach, with split-conformal 90% prediction intervals by drainage-area class (coverage 0.88–0.90 on
 held-out sites). Between 100 and 10,000 km² it agrees with the current model within about 10%. In
 headwaters it is narrower and closer to the Bieger et al. (2015) regional curves, so the national median
-width falls from 18.3 m to 10.9 m. Implausibly wide reaches (> 1 km) drop from 0.47% to 0.002%.
+width falls from 18.4 m to 10.9 m. Implausibly wide reaches (> 1 km) drop from 0.47% to 0.002%.
 
 <img src="fig_product.png" style="width:54%">
 
@@ -67,8 +67,8 @@ but only ~50 training sites; the gap to the regional curves narrows but does not
 1. Was the HYDRoSWOT-only choice deliberate, for example to keep one measurement method? The agreement
    above suggests data from other measurement methods could be added, but there may be reasons I have not
    seen.
-2. About 7,000 more sites have enough measurements but short flow records; NWM-based flood frequencies,
-   which the codebase already supports, could bring them in.
+2. About 7,000 more sites, mostly small streams, have enough measurements but short flow records.
+   RiverShapeML's existing NWM flood-frequency option could be used to bring them in.
 3. The same measurements are much denser at in-channel flows, which maps directly onto the in-channel
    model. This would be a reasonable next step to try with the process described here.
 
@@ -77,8 +77,9 @@ I would be glad to prototype any of these within predict-riverML.
 **Credit and citations.** This builds directly on Arash Modaresi Rad's RiverShapeML and the NOAA Office of
 Water Prediction's open predict-riverML pipeline, whose published models and inference code made a
 controlled comparison possible, and on AHGestimation by Mike Johnson, with contributions from Arash Modaresi
-Rad. A longer write-up, the code (one script rebuilds everything from public sources), an interactive
-notebook, and the re-predicted product with intervals for every reach are available on request.
+Rad. The code (one script rebuilds everything from public sources), a longer write-up and an interactive
+notebook are at [github.com/drmerlot/rivershapeml-more-data](https://github.com/drmerlot/rivershapeml-more-data); the re-predicted product with intervals for every reach is available on
+request.
 
 <p style="font-size:8.5pt; line-height:1.3; color:#444"><em>References.</em> Modaresi Rad, A., et al. (2024),
 <em>JGR: Machine Learning and Computation</em>, doi:10.1029/2024JH000173. Bieger, K., et al. (2015), <em>JAWRA</em>

@@ -12,7 +12,7 @@ if [ ! -d data/raw/repo/RiverShapeML ]; then
   git -C data/raw/repo/RiverShapeML checkout -q 29c1209
 fi
 
-# Published RiverShapeML outputs for 2.7M reaches (HydroShare d147fcf554a54b2aaa4f146f85da0e03, ~76 MB)
+# Published RiverShapeML 2024 outputs (2.71M rows; 2.65M distinct reaches) (HydroShare d147fcf554a54b2aaa4f146f85da0e03, ~76 MB)
 [ -f data/raw/rivershapeml/ml_channel_dimension.parquet ] || curl -sL -o data/raw/rivershapeml/ml_channel_dimension.parquet \
   "https://www.hydroshare.org/resource/d147fcf554a54b2aaa4f146f85da0e03/data/contents/ml_channel_dimension.parquet"
 
