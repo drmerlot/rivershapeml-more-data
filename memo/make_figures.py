@@ -1,7 +1,7 @@
 """Figures for the memo, from the pipeline outputs in data/derived/.
 
   fig_errors.png  : held-out error and bias by drainage area, existing RiverShapeML data vs the expanded set (A vs B2)
-  fig_product.png : median bankfull width vs drainage area for the four products, with the 90% prediction band
+  fig_product.png : median bankfull width and depth vs drainage area for the four products, with the 90% prediction band
 
 Usage: python memo/make_figures.py   (after ./run_all.sh)
 """
@@ -29,7 +29,7 @@ plt.rcParams.update({"font.family": "Helvetica Neue", "font.size": 9, "axes.edge
 
 
 def fig_errors():
-    fig, axes = plt.subplots(2, 2, figsize=(7.2, 4.6), sharex=True)
+    fig, axes = plt.subplots(2, 2, figsize=(7.2, 3.2), sharex=True)
     x = np.arange(len(LABELS))
     for row, (target, name) in enumerate([("TW_bf", "Bankfull width"), ("Y_bf", "Bankfull depth")]):
         p = pd.read_parquet(DER / f"runs/riverml_{target}/predictions.parquet")
@@ -61,28 +61,31 @@ def fig_product():
     prod["bin"] = pd.cut(prod.totdasqkm, edges)
     g = prod.groupby("bin", observed=True)
     mid = np.array([np.sqrt(iv.left * iv.right) for iv in g.size().index])
-    n = g.size().to_numpy()
-    keep = n >= 50
-    fig, ax = plt.subplots(figsize=(7.2, 4.0))
-    ax.axvspan(0.1, 5, color="#f1efe8", zorder=0)
-    ax.text(0.13, 950, "44% of reaches;\n~50 training sites", fontsize=7.5, color=MUTED, va="top")
-    lo = g.ours_tw_bf_m_p05.median().to_numpy()[keep]
-    hi = g.ours_tw_bf_m_p95.median().to_numpy()[keep]
-    ax.fill_between(mid[keep], lo, hi, color=GREEN, alpha=0.15, linewidth=0, label="90% prediction interval (expanded-set retrain)")
-    for col, color, lab in [("deployed_tw_bf_m", BLUE, "Current model"), ("hydroshare_tw_bf_m", ORANGE, "2024 release"),
-                            ("ours_tw_bf_m", GREEN, "Expanded-set retrain")]:
-        ax.plot(mid[keep], g[col].median().to_numpy()[keep], color=color, linewidth=2, label=lab)
-    ax.plot(mid[keep], g.bieger_tw_bf_m.median().to_numpy()[keep], color=MUTED, linewidth=1.6, linestyle=(0, (4, 3)),
-            label="Bieger et al. (2015) regional curve")
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_xlim(0.1, 3e6)
-    ax.set_ylim(1, 1500)
-    ax.set_xlabel("Drainage area (km²)")
-    ax.set_ylabel("Median bankfull width (m)")
-    ax.grid(True, which="major", axis="both", color=GRID, linewidth=0.6)
-    ax.legend(loc="lower right", fontsize=7.5)
-    fig.tight_layout()
+    keep = g.size().to_numpy() >= 50
+    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.75))
+    for ax, (v, ylabel, ylim) in zip(axes, [("tw", "Median bankfull width (m)", (1, 1500)),
+                                            ("y", "Median bankfull depth (m)", (0.1, 30))]):
+        ax.axvspan(0.1, 5, color="#f1efe8", zorder=0)
+        ax.text(0.13, ylim[1] * 0.75, "44% of reaches;\n~50 training sites", fontsize=6.5, color=MUTED, va="top")
+        lo = g[f"ours_{v}_bf_m_p05"].median().to_numpy()[keep]
+        hi = g[f"ours_{v}_bf_m_p95"].median().to_numpy()[keep]
+        ax.fill_between(mid[keep], lo, hi, color=GREEN, alpha=0.15, linewidth=0,
+                        label="90% prediction interval (expanded-set retrain)")
+        for col, color, lab in [("deployed", BLUE, "Current model"), ("hydroshare", ORANGE, "2024 release"),
+                                ("ours", GREEN, "Expanded-set retrain")]:
+            ax.plot(mid[keep], g[f"{col}_{v}_bf_m"].median().to_numpy()[keep], color=color, linewidth=1.8, label=lab)
+        ax.plot(mid[keep], g[f"bieger_{v}_bf_m"].median().to_numpy()[keep], color=MUTED, linewidth=1.4,
+                linestyle=(0, (4, 3)), label="Bieger et al. (2015) regional curve")
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.set_xlim(0.1, 3e6)
+        ax.set_ylim(*ylim)
+        ax.set_xlabel("Drainage area (km²)")
+        ax.set_ylabel(ylabel)
+        ax.grid(True, which="major", axis="both", color=GRID, linewidth=0.6)
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=3, fontsize=7, bbox_to_anchor=(0.5, 0))
+    fig.tight_layout(rect=(0, 0.1, 1, 1))
     fig.savefig(MEMO / "fig_product.png")
     plt.close(fig)
 

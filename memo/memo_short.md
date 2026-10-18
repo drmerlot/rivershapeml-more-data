@@ -18,8 +18,8 @@ Across CONUS, that pattern turns out to be common, and most common in small stre
 
 **What I did.** I rebuilt the bankfull targets from all USGS measurements, using RiverShapeML's sanity rules
 and Mike Johnson's AHGestimation for the hydraulic-geometry fits, evaluated at the 2-year flood (the median
-annual peak). I replaced the R² ≥ 0.6 site filter with a filter on the precision of the target itself,
-because many well-measured sites have nearly constant width and fail an R² test for that reason alone. The
+annual peak). I replaced the R² ≥ 0.6 site filter with a filter on the precision of the target itself
+(many well-measured sites have nearly constant width and fail R² for that reason alone). The
 features, feature engineering and inference are those of the public NOAA-OWP/predict-riverML pipeline,
 whose national outputs I could reproduce exactly from the published models; the model is the same XGBoost
 setup with modest regularization and early stopping.
@@ -34,10 +34,8 @@ existing RiverShapeML data (HYDRoSWOT measurements at existing sites) and on the
 measurements, existing and new sites), and scored both on the same held-out sites with cross-validation
 grouped by reach.
 
-<img src="fig_errors.png" style="width:63%">
-
-*Figure 1. Held-out median absolute error and median bias by drainage area, existing RiverShapeML data (A)
-vs the expanded training set (B2).*
+<figure><img src="fig_errors.png" style="width:100%"><figcaption><em>Figure 1. Held-out median absolute error and median bias by drainage area, existing RiverShapeML data (A)
+vs the expanded training set (B2).</em></figcaption></figure>
 
 | | Width | Depth |
 |---|---|---|
@@ -47,9 +45,8 @@ vs the expanded training set (B2).*
 | Median absolute error, sites new to training | 32% → 26% | 38% → 25% |
 | Existing sites, on the original HYDRoSWOT targets | 20.4% → 19.6% | 18.2% → 18.2% |
 
-The model trained on the existing data overpredicts small streams because it has few to learn from; the
-new sites remove most of that bias. The gain comes from the new sites; at existing sites, judged on the
-original HYDRoSWOT targets, the two models match.
+The existing-data model overpredicts small streams because it has few to learn from. The gain comes from
+the new sites: at existing sites, judged on the original HYDRoSWOT targets, the two models match.
 
 **A re-predicted national product.** I ran the retrained model through the predict-riverML pipeline for
 every reach, with split-conformal 90% prediction intervals by drainage-area class (coverage 0.88–0.90 on
@@ -57,10 +54,9 @@ held-out sites). Between 100 and 10,000 km² it agrees with the current model wi
 headwaters it is narrower and closer to the Bieger et al. (2015) regional curves, so the national median
 width falls from 18.4 m to 10.9 m. Implausibly wide reaches (> 1 km) drop from 0.47% to 0.002%.
 
-<img src="fig_product.png" style="width:54%">
-
-*Figure 2. Median bankfull width by drainage area, all CONUS reaches. The shaded region holds 44% of reaches
-but only ~50 training sites; the gap to the regional curves narrows but does not close.*
+<figure><img src="fig_product.png" style="width:100%"><figcaption><em>Figure 2. Median bankfull width (left) and depth (right) by drainage area, all CONUS reaches. The shaded
+region holds 44% of reaches but only ~50 training sites; the gap to the regional curves narrows but does not
+close.</em></figcaption></figure>
 
 **Questions and discussion.**
 
