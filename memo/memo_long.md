@@ -269,9 +269,6 @@ already been considered.
 6. **Release housekeeping.** An updated HydroShare release could carry prediction intervals and resolve
    the repeated IDs noted above.
 
-I would be glad to prototype any of these within the predict-riverML structure so that the results drop
-straight into the existing pipeline.
-
 ## Code and data
 
 Repository: [github.com/drmerlot/rivershapeml-more-data](https://github.com/drmerlot/rivershapeml-more-data). It contains every script, a single `run_all.sh` that rebuilds all

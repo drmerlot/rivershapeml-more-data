@@ -67,8 +67,6 @@ close.</em></figcaption></figure>
 3. The same measurements are much denser at in-channel flows, which maps directly onto the in-channel
    model. This would be a reasonable next step to try with the process described here.
 
-I would be glad to prototype any of these within predict-riverML.
-
 **Credit and citations.** This builds directly on Arash Modaresi Rad's RiverShapeML and the NOAA Office of
 Water Prediction's open predict-riverML pipeline, whose published models and inference code made a
 controlled comparison possible, and on AHGestimation by Mike Johnson, with contributions from Arash Modaresi
