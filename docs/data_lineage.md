@@ -295,7 +295,7 @@ flowchart TD
 
 - **Path:** `data/raw/rivershapeml/ml_channel_dimension.parquet`
 - **Rows:** 2,712,021
-- **Grain:** one reach (reach IDs repeat: ~65k duplicates, collapsed to their median when used)
+- **Grain:** one reach, except 932 reach IDs that repeat (66,341 rows; perfect-square counts, likely a many-to-many merge); collapsed to their median when used
 - **Key:** hf_id
 - **Source / provenance:**
   - **provider:** HydroShare, Modaresi Rad et al.
@@ -938,7 +938,7 @@ flowchart TD
 - **In:** `product_expanded`, `product_current`, `hydroshare_2024`, `bieger_curves`, `e2nhdplus`, `ml_inputs`
 - **Out:** `product_compare`
 - **Math:**
-  - join on COMID; 2024 release duplicates collapsed to their median; keep drainage area > 0
+  - join on COMID; 2024 release repeated IDs collapsed to their median; keep drainage area > 0
 
 #### Notebook cache (`notebook_cache`)
 
