@@ -44,5 +44,5 @@ Follow-ups the analysis points to, roughly in order of expected value.
   field top-of-bank, ~1.5–2× apart).
 - **Observation (not a step):** in an exploratory check at ~7,400 gaged reaches (not part of this pipeline),
   the NWM v2.1 2-year flood ran ~20% below the gage value overall and ~50% below for drainage areas < 10 km²
-  (10th-90th percentile ratio 0.03-2.2). It is a key input to the current model, so small-stream inputs are
+  (10th-90th percentile ratio 0.03-2.2; squared correlation of logs 0.72 overall, 0.03 under 10 km²). It is a key input to the current model, so small-stream inputs are
   weakest exactly where training data is thinnest.
