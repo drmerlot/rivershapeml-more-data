@@ -246,7 +246,7 @@ def _(mo):
     | 2 | **2-year flood estimated as the median of a gage's annual peaks** (≥ 10 years). On the annual-maximum basis the 2-year flood *is* the median annual flood (as in the UK Flood Estimation Handbook's QMED); the median is a simple estimate of it, where RiverShapeML fits flood distributions. | Within ~3% (median) of RiverShapeML's fitted values at ~5,000 shared sites; peaks span the full record, so changes in flood regime are averaged in. |
     | 3 | **One power law per site** for each of width, depth and velocity vs flow (fitted jointly with AHGestimation), readable up to 3× the largest measured flow. | Earlier plain-fit results held with 2× and 5× limits; AHG and plain-fit targets compared below. |
     | 4 | **Measurements near a gage represent its reach.** | Spots within ~200 ft differ (wading ~33% shallower than bridge), treated as real variability. |
-    | 5 | **All measurement methods are equally valid.** | Yes: same deployment, ADCP vs other meters agree within 0–2%. |
+    | 5 | **All measurement methods are equally valid.** | Yes: width targets from all measurements and from HYDRoSWOT agree at the median (ratio 1.00); depths measured the same way agree within 0.1–2.4%. |
     | 6 | **Channels are stable since 2000.** | Not tested. |
     | 7 | **The precision filter keeps trustworthy targets.** | Conclusions stable across three filter settings. |
     | 8 | **RiverShapeML's deployment inputs are correct and identical** for gaged and ungaged reaches. | Reproduced the deployed outputs exactly; input accuracy not checked. |
