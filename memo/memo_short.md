@@ -9,7 +9,7 @@ RiverShapeML (Modaresi Rad et al., 2024) predicts bankfull width and depth for a
 reaches in CONUS from a model trained on HYDRoSWOT, the USGS collection of acoustic Doppler (ADCP)
 measurements through 2014. USGS now publishes every channel measurement it makes, by every method (wading,
 bridge, cableway, boat), through its Water Data OGC API: 4.77 million records. This note asks whether
-those measurements improve the model, with everything else held fixed.
+those measurements improve the model.
 
 **How it started.** The USGS gage on Shoal Creek at Silverway Drive in Austin (08156675), at the end of a
 reach I walked, has 68 width measurements. HYDRoSWOT has 2, both from 2009, so the site falls below the
