@@ -14,7 +14,7 @@ records. I rebuilt the training targets from those records using the RiverShapeM
 conventions, kept the model, features and deployment pipeline unchanged, and asked one question: **does the
 added data improve the model where it is weakest?**
 
-- **More training sites, mostly where they were scarcest.** Bankfull-width training sites rise from 4,375
+- **More training sites, especially in small streams.** Bankfull-width training sites rise from 4,375
   to 6,928 (+58%). Sites under 10 km² rise from 66 to 111, and sites of 10–100 km² from 596 to 1,157.
 - **The added measurements are sound.** At the same sites, bankfull widths from all measurements and from
   HYDRoSWOT alone agree at the median (ratio 1.00); depths measured the same way agree within 0.1–2.4%.

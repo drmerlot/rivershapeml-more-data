@@ -27,7 +27,7 @@ contributions from Arash Modaresi Rad.
 
 ## Results
 
-**More training sites, mostly where they were scarcest.**
+**More training sites, especially in small streams.**
 
 | Drainage area (km²) | Published width targets (R² ≥ 0.6) | Expanded training set |
 |---|---:|---:|

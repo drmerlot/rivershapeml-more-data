@@ -24,7 +24,7 @@ features, feature engineering and inference are those of the public NOAA-OWP/pre
 whose national outputs I could reproduce exactly from the published models; the model is the same XGBoost
 setup with modest regularization and early stopping.
 
-**More sites where they were scarcest.** Bankfull-width training sites rise from 4,375 to 6,928 (+58%).
+**More sites, especially in small streams.** Bankfull-width training sites rise from 4,375 to 6,928 (+58%).
 Sites draining under 10 km² rise from 66 to 111, and 10–100 km² from 596 to 1,157; 58% of NHDPlus reaches
 are under 10 km². At the same sites, bankfull widths from all measurements and from HYDRoSWOT alone agree
 at the median (ratio 1.00), and depths measured the same way agree within 0.1–2.4%.
